@@ -14,6 +14,8 @@ The application performs the following steps:
 3. Validates the generated output for format and topological correctness.
 4. Visualizes the result using Matplotlib.
 
+It can also [refine](#refining-sections) existing sections based on additional user instructions. Apart from that, users can [ask](#) questions related to the generated sections.
+
 ## Prerequisites
 
 - Python 3.12
@@ -141,6 +143,12 @@ Files are named with a timestamp (e.g., `section_2025-12-26_10-30-00.png`) to pr
 ### Refining Sections
 
 After generating a section, you can choose to refine it by providing additional instructions (e.g., "Make the fault steeper" or "Add more layers"). The application will update the section accordingly and save the new output files.
+After generating a section, you will be prompted with the option to refine it. If you choose to refine, simply enter your instructions when prompted.
+
+### Asking Questions related to Sections
+
+Users can also ask questions related to the generated sections (e.g., "What is the dip angle of the fault?"). The application will analyze the section and provide answers based on the geological data.
+This can be done using another option after generating a section. If you choose this option, simply type your question when prompted.
 
 ## Troubleshooting
 

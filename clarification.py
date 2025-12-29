@@ -107,7 +107,7 @@ RESPOND IN STRICT JSON FORMAT:
 }
 """
 
-def validate_description(description: str, llm_model: str = "gpt-4o") -> dict:
+def validate_description(description: str, llm_model: str = "gpt-5") -> dict:
     """
     Validates the user's geological description using LLM.
     Returns a dictionary with validation results.
@@ -144,3 +144,65 @@ def validate_description(description: str, llm_model: str = "gpt-4o") -> dict:
             "suggestions": [],
             "clarification_question": "Error validating description."
         }
+
+
+def ask_about_section(question: str, definition: str, description: str, api_key: str, llm_model: str = "gpt-5") -> str:
+    """
+    Answer questions about the current section without modifying it.
+    Returns: AI response text
+    """    
+            
+    try:
+        system_prompt = """You are a senior structural geologist and geology professor.
+You are explaining a 2D geological cross-section to a student.
+
+The cross-section is defined in a text format where:
+- Lines like "0 10.5 -3.2" define vertices (ID, X_km, Z_km)
+- Lines like "Sandstone 0 1 5 4" define polygons (Name, followed by vertex IDs)
+
+Your task is to:
+1. Explain the geological features visible in the section
+2. Describe the stratigraphy (layer sequence)
+3. Identify structural features (faults, folds, unconformities)
+4. Interpret the geological history (sequence of events)
+5. Answer any specific questions the user asks
+
+Be educational, clear, and concise. Use proper geological terminology."""
+
+        user_content = f"""Current cross-section definition:
+```
+{definition}
+```
+
+Original description: {description}
+
+User's question: {question}"""
+
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_content}
+        ]
+        
+        # Use 
+        response, _ = gs.llm.call_llm(
+            backend="openai",
+            model=llm_model,
+            input=messages,            
+        )
+        
+        text, reasoning = gs.llm.parse_response(response)
+        
+        if reasoning:
+            return f"**Thinking Process:**\n{reasoning}\n\n---\n\n{text}"
+        return text
+        
+    except Exception as e:
+        print(f"Answer error: {e}")
+        # Fallback for error
+        return {
+            "status": "error", 
+            "confidence": 0,
+            "missing_critical": [],
+            "suggestions": [],
+            "clarification_question": "Error answering question."
+        }        
