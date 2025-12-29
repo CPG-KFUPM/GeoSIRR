@@ -30,6 +30,12 @@ Below are the instructions for [pip](#installation-using-pip) and [conda](#insta
 Install the required Python packages:
 
 ```bash
+pip install .
+```
+
+or alternatively, install from the `requirements.txt` file:
+
+```bash
 pip install -r requirements.txt
 ```
 
@@ -129,36 +135,14 @@ After generating a section, you can choose to refine it by providing additional 
 - Ensure there are no extra spaces around the key.
 
 **Issue: "Module not found"**
-- Ensure you have installed all dependencies using `pip install -r requirements.txt`.
+- Ensure you have installed all dependencies using `pip install .`.
 
 **Issue: Topology Validation Errors**
 - The LLM may occasionally generate geometrically invalid shapes. If this happens, try generating the section again or refining the description to be more specific.
 
 ## Versioning
 
-GeoSIRR uses a stable **release version** and an optional **build identifier**.
-
-- Release version is currently `1.0`.
-- If you set the environment variable `GEOSIRR_BUILD`, the displayed version becomes:
-   - `1.0+<build>` (PEP 440 *local version* metadata)
-
-This lets you keep the public version at `1.0` while distinguishing different builds (CI runs, git hashes, etc.).
-
-### Examples (Windows PowerShell)
-
-Temporary for the current shell:
-
-```powershell
-$env:GEOSIRR_BUILD = "dev.1"
-python main.py
-```
-
-Using a git short hash (if `git` is available):
-
-```powershell
-$env:GEOSIRR_BUILD = (git rev-parse --short HEAD)
-python main.py
-```
+GeoSIRR uses semantic versioning. The release version is defined in `pyproject.toml`.
 
 ## Acknowledgements
 

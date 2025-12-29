@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "geosirr"
+version = "1.0.0"
+description = "Geological Section Interpretation, Reconstruction & Refinement"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dynamic = ["dependencies"]
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["geosirr*"]
+
+[tool.setuptools.dynamic]
+dependencies = { file = ["requirements.txt"] }
