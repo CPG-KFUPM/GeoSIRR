@@ -1,0 +1,72 @@
+0 0.0 0.0 # top left corner (W)
+1 15.0 0.0 # top right corner (E)
+2 15.0 -3.0 # bottom right corner of the cross section
+3 0.0 -3.0 # bottom left corner of the cross section
+
+# Basement top (thicker in W: 1.0 km; thinner in E: 0.2 km). Gentle deepening to the E, flex near x=2 km.
+4 0.0 -2.0 # basement top at W (sediment thickness above = 2.0 km)
+5 2.0 -2.1 # local basement flexure near 2 km
+6 6.0 -2.3
+7 7.5 -2.45
+8 9.0 -2.6
+9 10.0 -2.68
+10 11.0 -2.74
+11 12.0 -2.78
+12 13.0 -2.79
+13 14.0 -2.795
+14 15.0 -2.8 # basement top at E (basement thickness = 0.2 km)
+
+# Interface I1 (top of Layer 1; cliniform with pinch-out at x=6 onto basement)
+15 0.0 -1.8 # I1 west (L1 thickness at W = 0.2 km)
+16 1.5 -1.8 # I1 topset (flat)
+17 4.0 -2.1 # I1 foreset shaping
+18 5.0 -2.2 # I1 foreset shaping (near pinch at x=6; next vertex 6 is the pinch on basement)
+
+# Interface I2 (top of Layer 2; pinch-out at x=7.5 onto I1/basement composite)
+19 0.0 -1.58 # I2 west (thicker than L1)
+20 2.2 -1.58 # I2 topset
+21 5.2 -2.0 # I2 foreset shaping (pinch at vertex 7 on basement)
+
+# Interface I3 (top of Layer 3; pinch-out at x=9.0)
+22 0.0 -1.34 # I3 west
+23 3.0 -1.34 # I3 topset
+24 6.0 -1.9 # I3 foreset shaping (pinch at vertex 8 on basement)
+
+# Interface I4 (top of Layer 4; pinch-out at x=10.0)
+25 0.0 -1.09 # I4 west
+26 3.8 -1.09 # I4 topset
+27 7.0 -1.7 # I4 foreset shaping (pinch at vertex 9)
+
+# Interface I5 (top of Layer 5; pinch-out at x=11.0)
+28 0.0 -0.83 # I5 west
+29 4.6 -0.83 # I5 topset
+30 8.0 -1.4 # I5 foreset shaping (pinch at vertex 10)
+
+# Interface I6 (top of Layer 6; pinch-out at x=12.0)
+31 0.0 -0.56 # I6 west
+32 5.5 -0.56 # I6 topset
+33 9.0 -1.1 # I6 foreset shaping (pinch at vertex 11)
+
+# Interface I7 (top of Layer 7; pinch-out at x=13.0)
+34 0.0 -0.28 # I7 west
+35 6.5 -0.28 # I7 topset
+36 10.0 -0.8 # I7 foreset shaping (pinch at vertex 12)
+
+## Bodies (no overlaps, no gaps; polygons tile the rectangle)
+basement 4 5 6 7 8 9 10 11 12 13 14 2 3 # basement body: top 4->...->14, base 14->2->3->4
+
+layer1 15 16 17 18 6 5 4 # bottommost clinothem; pinches at x=6 onto basement
+
+layer2 19 20 21 7 6 18 17 16 15 # clinothem; pinches at x=7.5 (onto I1/basement composite)
+
+layer3 22 23 24 8 7 21 20 19 # clinothem; pinches at x=9.0
+
+layer4 25 26 27 9 8 24 23 22 # clinothem; pinches at x=10.0
+
+layer5 28 29 30 10 9 27 26 25 # clinothem; pinches at x=11.0
+
+layer6 31 32 33 11 10 30 29 28 # clinothem; pinches at x=12.0
+
+layer7 34 35 36 12 11 33 32 31 # clinothem; pinches at x=13.0
+
+layer8 0 1 14 13 12 36 35 34 # youngest set; extends to E (surface to I7/basement composite)

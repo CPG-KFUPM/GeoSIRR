@@ -1,0 +1,105 @@
+# Geological Cross-Section
+# Generated: 2025-11-18_16-01-46
+# Model: gpt-5
+# Original Description: # Laccolith Intrusion Cross Section
+
+## Section Extent
+* **Horizontal:** 0 km to 40 km
+* **Vertical:** 0 km (surface) to 8 km (depth)
+
+## Geological Features
+
+### Feeder Dyke
+- **Width:** 0.8 km
+- **Dip:** 75° east
+- **Location:** Bottom at x=19 km (depth 8 km), top at x=22 km (depth 5 km)
+- **Lithology:** Basalt
+
+### Laccolith Sill
+- **Type:** Lens-shaped intrusion at top of shale layer (5 km depth)
+- **Peak:** x=22 km, thickness 1.2 km
+- **West side:** Gradual taper from x=15 km to x=22 km
+- **East side:** Steeper taper from x=22 km to x=26 km
+- **Edges:** Taper smoothly to zero thickness
+- **Top:** Smooth dome shape
+- **Lithology:** Diorite
+
+### Layer Deformation
+- Layers 1 and 2 bend upward over laccolith, maintaining constant 2 km thickness
+- Maximum uplift ~1.2 km at x=22 km
+- Layers return to flat beyond x=15 km (west) and x=26 km (east)
+
+## Stratigraphic Layers
+- **Layer 1 (Sandstone):** 2 km thick, deformed over laccolith
+- **Layer 2 (Limestone):** 2 km thick, deformed over laccolith
+- **Layer 3 (Shale):** 2.5 km thick, laccolith intrudes at top
+- **Layer 4 (Basement):** 2.5 km thick, flat
+
+# ==================================================
+
+0 0.0 0.0 # top left corner of the cross section
+1 40.0 0.0 # top right corner of the cross section
+2 40.0 -8.0 # bottom right corner of the cross section
+3 0.0 -8.0 # bottom left corner of the cross section
+
+# Top-of-L2 (base of Layer 1) - domed over laccolith, returns flat outside [15,26]
+4 0.0 -2.0
+5 15.0 -2.0
+6 17.0 -1.6
+7 19.0 -1.2
+8 21.0 -0.9
+9 22.0 -0.8 # maximum uplift of L2 top (≈1.2 km uplift from -2.0 to -0.8) at x=22
+10 23.0 -1.2
+11 24.0 -1.6
+12 26.0 -2.0
+13 40.0 -2.0
+
+# Base-of-L2 = top-of-shale or laccolith top within [15,26] (shaped dome), flat at -4 elsewhere
+14 0.0 -4.0
+15 15.0 -4.0 # west edge of laccolith base on shale top
+16 17.0 -3.6
+17 19.0 -3.2
+18 21.0 -2.95
+19 22.0 -2.8 # laccolith top apex (thickness 1.2 km over flat base at -4.0)
+20 23.0 -3.2
+21 24.0 -3.6
+22 25.2 -3.85
+23 26.0 -4.0 # east edge of laccolith base on shale top
+24 40.0 -4.0
+
+# Shale base (top of basement), flat
+25 0.0 -6.5
+26 40.0 -6.5
+
+# Feeder dyke top intersection with shale top (aligned at z=-4 for clean topology)
+27 21.6 -4.0 # dyke top-left on shale top
+28 22.4 -4.0 # dyke top-right on shale top
+
+# Feeder dyke bottom intersections with base of section
+29 18.8 -8.0 # dyke bottom-left on base
+30 19.6 -8.0 # dyke bottom-right on base
+
+# Feeder dyke intersections with shale base (z=-6.5)
+31 19.85 -6.5 # left edge at shale base
+32 20.65 -6.5 # right edge at shale base
+
+## Bodies
+# Layer 1 (Sandstone): surface to top-of-L2 (surface flat, L2 top domed)
+sandstone 0 1 13 12 11 10 9 8 7 6 5 4
+
+# Layer 2 (Limestone): top-of-L2 dome down to base-of-L2 (which equals laccolith top inside [15,26] and flat -4 outside)
+limestone 4 5 6 7 8 9 10 11 12 13 24 23 22 21 20 19 18 17 16 15 14
+
+# Laccolith sill (Diorite): flat base at -4 (x=15→26, split by dyke top at 27–28), domed top peaking at -2.8 at x=22
+laccolith 15 27 28 23 22 21 20 19 18 17 16
+
+# Shale (Layer 3) split into left and right parts by the feeder dyke; both sit between -4 and -6.5
+shale^left 14 15 27 31 25
+shale^right 28 23 24 26 32
+
+# Basement (Layer 4) split by the feeder dyke; flat between -6.5 and -8.0
+basement^left 25 31 29 3
+basement^right 32 26 2 30
+
+# Feeder dyke (Basalt), ~0.8 km wide, dipping obliquely; connects basement to shale top
+feeder_dyke 27 28 32 30 29 31

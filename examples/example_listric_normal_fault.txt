@@ -1,0 +1,28 @@
+0 0.0 0.0 # top left corner of the cross section (surface)
+1 20.0 0.0 # top right corner of the cross section (surface)
+2 20.0 -5.0 # bottom right corner of the cross section
+3 0.0 -5.0 # bottom left corner of the cross section
+
+4 0.0 -1.0 # footwall: base of Layer 1 / top of Layer 2
+5 20.0 -2.0 # hanging wall: base of Layer 1 / top of Layer 2
+6 0.0 -3.0 # footwall: base of Layer 2 / top of Layer 3
+7 20.0 -4.0 # hanging wall: base of Layer 2 / top of Layer 3
+
+## Fault F1 (normal, listric, east-dipping): 6 straight segments approximating curvature; vertical throw ≈ 1 km
+8 8.0 0.0 # F1 surface trace (x=8 km)
+9 8.289 -0.5 # F1 segment (steep ~60°)
+10 8.639 -1.0 # F1 at z=-1 km (Layer1 FW/HW boundary tie)
+11 9.639 -2.0 # F1 at z=-2 km (Layer1^right base / Layer2^right top)
+12 11.067 -3.0 # F1 at z=-3 km (Layer2 FW/HW boundary tie)
+13 13.212 -4.0 # F1 at z=-4 km (Layer2^right base / Layer3^right top)
+14 15.959 -5.0 # F1 at z=-5 km (flattened ~20° at base)
+
+## Bodies
+layer1^footwall 0 8 9 10 4 # Layer 1 on footwall: 1 km thick (0 to -1)
+layer1^hanging 8 1 5 11 10 9 # Layer 1 on hanging wall: thickens to 2 km (0 to -2)
+
+layer2^footwall 4 10 11 12 6 # Layer 2 on footwall: 2 km thick (-1 to -3)
+layer2^hanging 11 5 7 13 12 # Layer 2 on hanging wall: 2 km thick (-2 to -4)
+
+layer3^footwall 6 12 13 14 3 # Layer 3 on footwall: 2 km thick (-3 to -5)
+layer3^hanging 13 7 2 14 # Layer 3 on hanging wall: thins to 1 km (-4 to -5)

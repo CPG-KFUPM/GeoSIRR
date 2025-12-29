@@ -1,0 +1,41 @@
+0 0.0 0.0 # top left corner of cross section (surface)
+1 20.0 0.0 # top right corner (surface)
+2 20.0 -5.0 # bottom right corner
+3 0.0 -5.0 # bottom left corner
+
+4 0.0 -1.0 # footwall: top of Layer 2 (base of Layer 1), 1 km thick L1 on footwall
+5 0.0 -3.0 # footwall: top of Basement (base of Layer 2)
+
+6 20.0 -2.0 # hanging wall: top of Layer 2 (base of Layer 1), 2 km thick L1 on hanging wall (far right reference depth)
+7 20.0 -4.0 # hanging wall: top of Basement (base of Layer 2) (far right reference depth)
+
+## Fault F1 (listric normal fault, dips east; 6 straight segments approximating curvature; 1 km vertical throw)
+8 8.0 0.0 # F1 surface trace (x=8 km), dip ~60°
+9 8.577 -1.0 # F1 at z=-1 km (segment ~60°)
+10 9.416 -2.0 # F1 at z=-2 km (segment ~50°)
+11 10.608 -3.0 # F1 at z=-3 km (segment ~40°)
+12 12.340 -4.0 # F1 at z=-4 km (segment ~30°)
+13 13.412 -4.5 # F1 at z=-4.5 km (segment ~25°)
+14 14.785 -5.0 # F1 at z=-5 km (segment ~20°, fault root at section base)
+
+## Rollover shaping vertices in the hanging wall (curved interfaces toward and away from the fault)
+15 11.0 -1.9  # shaping top of Layer 2 (base of Layer 1) near fault (rollover)
+16 13.0 -1.75 # shaping top of Layer 2 (base of Layer 1)
+17 14.5 -1.70 # crest of rollover for top of Layer 2
+18 16.0 -1.75 # shaping top of Layer 2 (base of Layer 1)
+19 18.0 -1.9  # shaping top of Layer 2 (base of Layer 1) near right edge
+
+20 12.9 -3.9  # shaping top of Basement (base of Layer 2) near fault (rollover)
+21 14.5 -3.8  # shallowest point (crest) on top of Basement beneath rollover
+22 16.0 -3.85 # shaping top of Basement
+23 18.0 -3.95 # shaping top of Basement near right edge
+
+## Bodies (three layers split by the east-dipping normal fault F1; hanging wall downthrown by 1 km; rollover added in hanging wall)
+layer1^footwall 0 8 9 4 # Layer 1 (top) on footwall: surface to z=-1, 0-~8.577 km up to F1
+layer1^hanging 8 1 6 19 18 17 16 15 10 9 # Layer 1 (top) on hanging wall with rollover bottom (curved 6→10), includes F1 segment 10→9
+
+layer2^footwall 4 9 10 11 5 # Layer 2 (middle) on footwall: z=-1 to z=-3 up to F1 (uses F1 9-10-11)
+layer2^hanging 10 15 16 17 18 19 6 7 23 22 21 20 12 11 # Layer 2 (middle) on hanging wall with rollover on both top (10→6) and bottom (12→7)
+
+basement^footwall 5 11 12 13 14 3 # Basement on footwall: z=-3 to -5 (uses F1 11-12-13-14)
+basement^hanging 12 20 21 22 23 7 2 14 13 # Basement on hanging wall with rollover top (12→7), fault/root to base
