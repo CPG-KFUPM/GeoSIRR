@@ -1,0 +1,55 @@
+{
+    "title":"GeoSIRR: Geological Section Interpretation, Reconstruction & Refinement",
+    "version":"1.0.0",    
+    "license":"GPL-3.0-or-later",
+    "upload_type":"software",
+    "description":"GeoSIRR (Geological Section Interpretation, Reconstruction & Refinement) is an open-source Python Framework that leverages large language models (LLMs) to translate free-form geological narratives into structured, coordinate-based cross-section geometries.",
+    "keywords":[
+       "Geology",
+       "Structural Geology",
+       "Geological Cross-Section",
+       "Geological Interpretation",
+       "Geological Reconstruction",       
+       "Large Language Models",
+       "Domain-Specific LLMs",
+       "Domain Specific Language",
+       "Generative AI"
+    ],
+    "access_right":"open",    
+    "language":"eng",
+    "creators":[       
+       {
+          "affiliation": "Center for Integrative Petroleum Research, King Fahd University of Petroleum and Minerals, Dhahran, Saudi Arabia",
+          "name":"Anikiev, Denis",
+          "orcid":"0000-0002-4729-2659",
+          "type":"contactperson"
+       },
+       {
+          "affiliation": "Geophysics Group, Universidad Nacional de Colombia, Bogotá, Colombia",
+          "name":"Mosquera, Juan Esteban",
+          "orcid":"0009-0006-5315-016X",
+          "type":"projectmember"
+       }
+    ],
+    "contributors": [
+        {
+            "affiliation": "Department of Geosciences, King Fahd University of Petroleum and Minerals, Dhahran, Saudi Arabia",
+            "name": "Ayranci, Korhan",
+            "orcid": "0000-0002-4808-9898",
+            "type": "Other"
+        },
+        {
+            "affiliation": "Section 4.5 - Subsurface Process Modelling, GFZ Helmholtz Centre for Geosciences, Potsdam, Germany",
+            "name": "Bott, Judith",
+            "orcid": "0000-0002-2018-4754",
+            "type": "Other"
+        },
+        {
+            "affiliation": "Department of Geosciences, King Fahd University of Petroleum and Minerals, Dhahran, Saudi Arabia",
+            "name": "Waheed, Umair Bin",
+            "orcid": "0000-0002-5189-0694",
+            "type": "Other"
+        }
+    ]
+ }
+ 
