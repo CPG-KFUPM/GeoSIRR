@@ -172,6 +172,9 @@ You can find example DSL definitions for geological cross-sections together with
 
 ### Example 1: Listric Normal Fault Example
 
+This example demonstrates a geological cross-section featuring a listric normal fault.
+A rollover folding in the hanging wall is added in the first refinement, and a second listric fault is added in the second refinement.
+
 #### Visualized Listric Normal Fault Cross Section
 
 ![Listric Normal Fault Cross Section](examples/example_listric_normal_fault_2.png)
