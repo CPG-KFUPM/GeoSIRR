@@ -61,6 +61,20 @@ Then activate the environment:
 conda activate geosirr
 ```
 
+## Uninstallation
+
+To uninstall GeoSIRR dependencies, you can use pip:
+
+```bash
+pip uninstall -r requirements.txt -y
+```
+
+or if you installed using conda, you can remove the environment:
+
+```bash
+conda env remove -n geosirr
+```
+
 ## Configuration
 
 This application requires an OpenAI API key to function.
