@@ -1,5 +1,7 @@
 # GeoSIRR
 
+[![DOI](https://zenodo.org/badge/1124047636.svg)](https://zenodo.org/badge/latestdoi/1124047636)
+
 GeoSIRR: Geological Section Interpretation, Reconstruction & Refinement
 
 ---
