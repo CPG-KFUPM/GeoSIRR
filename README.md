@@ -13,7 +13,7 @@ This command-line interface (CLI) version of GeoSIRR allows users to generate ge
 1. Validate the user's geological description for completeness.
 2. Generate a structured text (DSL) representation of the cross-section using LLMs.
 3. Validate the generated output for format and topological correctness.
-4. Visualize the result using Matplotlib.
+4. Visualize the result using [Matplotlib].
 5. Refine existing sections based on user instructions.
 6. Answer questions related to the generated sections.
 
@@ -21,10 +21,10 @@ This command-line interface (CLI) version of GeoSIRR allows users to generate ge
 
 ## Prerequisites
 
-- Python 3.12
+- [Python] 3.12
 - [PIP] package manager
 - [Conda] (optional, for environment management)
-- An [OpenAI] API Key (currently GeoSIRR supports only OpenAI's GPT models)
+- [OpenAI] API Key (currently GeoSIRR supports only OpenAI's GPT models)
 
 ---
 
@@ -41,7 +41,7 @@ Install the required Python packages:
 pip install .
 ```
 
-or alternatively, install from the `requirements.txt` file:
+or alternatively, install from the [`requirements.txt`](requirements.txt) file:
 
 ```bash
 pip install -r requirements.txt
@@ -49,7 +49,7 @@ pip install -r requirements.txt
 
 ### Installation using conda
 
-Create a new conda environment and install the required packages from the provided `environment.yml` file. This file contains all the necessary Python dependencies.
+Create a new conda environment and install the required packages from the provided [`environment.yml`](environment.yml) file. This file contains all the necessary Python dependencies.
 
 Type this command, for instance, in [Miniforge] prompt:
 
@@ -103,6 +103,8 @@ This application requires an OpenAI API key to function.
 
 Alternatively, if the `.env` file is not configured, the application will prompt you to enter your API key upon startup and will save it to a local file for future use.
 
+**Note: The key is stored only locally and is not shared or transmitted to any external servers except OpenAI's API endpoints.**
+
 ---
 
 ## Usage
@@ -144,6 +146,7 @@ Option 0 exits the application.
 ### Output
 
 When you run a generation, the application will produce both text and image files representing the geological cross-section. The cross-section image will also be displayed in a pop-up window.
+See the [examples](#examples) section below for sample outputs.
 
 Generated files are saved in the `output` directory.
 
@@ -156,19 +159,22 @@ DSL definitions can be found in the main prompt in file `prompts/section_text_ge
 
 ### Refining Sections
 
-After generating a section, you can choose to refine it by providing additional instructions (e.g., "Make the fault steeper" or "Add more layers"). The application will update the section accordingly and save the new output files.
-After generating a section, you will be prompted with the option to refine it. If you choose to refine, simply enter your instructions when prompted.
+After generating a section, you can choose to refine it by providing additional instructions (e.g., *"Make the fault steeper"* or *"Add more layers"*).
+Simply enter your instructions when prompted and press Enter twice to submit.
+The application will update the section accordingly and save the new output files.
 
 ### Asking Questions related to Sections
 
-Users can also ask questions related to the generated sections (e.g., "What is the dip angle of the fault?"). The application will analyze the section and provide answers based on the geological data.
-This can be done using another option after generating a section. If you choose this option, simply type your question when prompted.
+Users can also ask questions related to the generated sections (e.g., *"What is the dip angle of the fault?"*).
+Simply type your question when prompted and press Enter twice to submit.
+The applications will send the question to the LLM, which will analyze the section and provide answer based on the data and geological knowledge.
 
 ---
 
 ## Examples
 
 You can find example DSL definitions for geological cross-sections together with their corresponding output files in the `examples` directory.
+Below are some of the examples included.
 
 ### Example 1: Listric Normal Fault Example
 
@@ -179,7 +185,7 @@ A rollover folding in the hanging wall is added in the first refinement, and a s
 
 ![Listric Normal Fault Cross Section](examples/example_listric_normal_fault_2.png)
 
-DSL definition can be found in file: `examples/example_listric_normal_fault_2.txt`
+DSL definition is in file: [`examples/example_listric_normal_fault_2.txt`](examples/example_listric_normal_fault_2.txt)
 
 #### Original Description for Listric Normal Fault Cross Section
 
@@ -225,17 +231,17 @@ A vertical cross-section showing a **listric normal fault** in an extensional te
 
 Below are the results for the same cross-section after refining of the initial generation:
 
-Refinement Instruction: *"Add a geologically consistent rollover folding to the hanging wall of the listric fault"*
+- Refinement Instruction: *"Add a geologically consistent rollover folding to the hanging wall of the listric fault"*
 
 ![Refined Listric Normal Fault Cross Section 1](examples/example_listric_normal_fault_2_refined.png)
 
-Refinement Instruction: *"Add a parallel listric fault with a similar rollover folding starting at x=2 km"*
+- Refinement Instruction: *"Add a parallel listric fault with a similar rollover folding starting at x=2 km"*
 
 ![Refined Listric Normal Fault Cross Section 2](examples/example_listric_normal_fault_2_refined_2.png)
 
-Resulting DSL definitions can be found in files:
-- `examples/example_listric_normal_fault_2_refined.txt`
-- `examples/example_listric_normal_fault_2_refined_2.txt`
+Resulting DSL definitions are in files:
+- [`examples/example_listric_normal_fault_2_refined.txt`](examples/example_listric_normal_fault_2_refined.txt)
+- [`examples/example_listric_normal_fault_2_refined_2.txt`](examples/example_listric_normal_fault_2_refined_2.txt)
 
 ### Example 2: Laccolith Dyke Intrusion
 
@@ -245,7 +251,7 @@ This example demonstrates a geological cross-section featuring a laccolith dyke 
 
 ![Laccolith Dyke Intrusion Cross Section](examples/example_laccolith_dyke_2.png)
 
-DSL definition can be found in file: `examples/example_laccolith_dyke_2.txt`
+DSL definition is in file: [`examples/example_laccolith_dyke_2.txt`](examples/example_laccolith_dyke_2.txt)
 
 #### Original Description for Laccolith Dyke Intrusion Cross Section
 
@@ -289,7 +295,7 @@ This example illustrates a geological cross-section of a prograding delta system
 
 ![Prograding Delta Cross Section](examples/example_prograding_delta.png)
 
-DSL definition can be found in file: `examples/example_prograding_delta.txt`
+DSL definition is in file: [`examples/example_prograding_delta.txt`](examples/example_prograding_delta.txt)
 
 ### Original Description for Prograding Delta Cross Section
 
@@ -313,22 +319,35 @@ At 2 km the basement shows thinning towards W. Above the basement, there are 8 l
 
 ## Versioning
 
-GeoSIRR uses semantic versioning. The release version is defined in `pyproject.toml`.
+GeoSIRR uses semantic versioning. The release version is defined in [`pyproject.toml`](pyproject.toml).
+Please refer to the [CHANGELOG.md](CHANGELOG.md) file for a detailed list of changes in each version.
 
 ## Acknowledgements
 
-The project was supported by the Center for Integrative Petroleum Research ([CIPR]) at King Fahd University of Petroleum & Minerals (KFUPM) and inspired by [Geo-LM] project.
+The project was supported by the Center for Integrative Petroleum Research ([CIPR]) at King Fahd University of Petroleum and Minerals ([KFUPM]) and inspired by [Geo-LM] project.
+
+## Authors
+
+- Denis Anikiev - [GitHub](https://github.com/danikiev) - [ORCID](https://orcid.org/0000-0002-4729-2659)
+- Juan E. Mosquera - [GitHub](https://github.com/LunarPerovskite) - [ORCID](https://orcid.org/0009-0006-5315-016X)
 
 ## Citing
 
 This work is described in the following manuscript, which you can cite when using GeoSIRR in your research:
 
-Anikiev, D., Mosquera, J.E. , Ayranci, K., Bott, J., Waheed, U.b. (2026). GeoSIRR 1.0: Conversational Geological Cross-Section Modeling Using Large Language Models. (submitted to Geoscientific Model Development).
+Anikiev, D., Mosquera, J. E. , Ayranci, K., Bott, J., Waheed, U. b. (2026). GeoSIRR 1.0: Conversational Geological Cross-Section Modeling Using Large Language Models. (submitted to Geoscientific Model Development).
 
-[cipr]: https://cpg.kfupm.edu.sa/cipr/
-[conda]: https://docs.conda.io/en/latest/
+## License
+
+This project is licensed under the GNU General Public License v3.0 or later - see the [LICENSE](LICENSE) file for details.
+
+[cipr]: https://cpg.kfupm.edu.sa/cipr
+[conda]: https://docs.conda.io/en/latest
 [geo-lm]: https://github.com/williamjsdavis/geo-lm
+[kfupm]: https://www.kfupm.edu.sa
 [llms]: https://en.wikipedia.org/wiki/Large_language_model
+[matplotlib]: https://matplotlib.org
 [miniforge]: https://github.com/conda-forge/miniforge
 [openai]: https://openai.com
-[pip]: https://pip.pypa.io/en/stable/
+[pip]: https://pip.pypa.io/en/stable
+[python]: https://www.python.org
