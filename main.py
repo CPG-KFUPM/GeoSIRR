@@ -128,12 +128,12 @@ def select_template():
         except ValueError:
             print("Please enter a number.")
 
-def process_description(description, api_key, model_name):
+def process_description(description, api_key, model_name, last_refinement=None, last_result=None):
     """
     Process the description: Clarify -> Generate -> Validate -> Plot
     """
     os.environ["OPENAI_API_KEY"] = api_key
-    
+   
     print(f"\n--- Using Model: {model_name} ---")
     
     print("\n--- Validating Description ---")
@@ -264,11 +264,13 @@ def process_description(description, api_key, model_name):
             if refine_choice == '1':
                 refinement = input("\nEnter refinement instructions: ").strip()
                 if refinement:
-                    # Append refinement to description and re-process
-                    # Note: Ideally we would pass the previous result as context, 
-                    # but for now we append to the prompt.
-                    new_description = f"{description}\n\nRefinement Request: {refinement}"
-                    process_description(new_description, api_key, model_name)
+                    # Append refinement and previous result to the description and re-process
+                    if last_refinement:
+                        new_refinement = last_refinement + f"\n\nResult of the previous refinement:\n{text_result}\n---\nRefinement request: {refinement}\n" 
+                    else:
+                        new_refinement = f"Result of the previous generation:\n{text_result}\n---\nRefinement Request: {refinement}\n"
+                    new_description = f"{description}\n\n{new_refinement}"                    
+                    process_description(new_description, api_key, model_name,new_refinement)                    
                     return # Exit this instance of process_description to avoid deep recursion stack
             elif refine_choice == '2':
                 question = input("\nEnter your question about the section: ").strip()
@@ -317,7 +319,8 @@ def main():
         if choice == '1':
             template = select_template()
             if template:
-                print(f"\nSelected Template:\n{template[:100]}...")
+                #print(f"\nSelected Template:\n{template[:100]}...")
+                print(f"\nSelected Template:\n{template}...")
                 process_description(template, api_key, model_name)
         
         elif choice == '2':
