@@ -1,7 +1,7 @@
 {
     "title":"GeoSIRR: Geological Section Interpretation, Reconstruction & Refinement",
     "version":"1.0.0",    
-    "license":"GPL-3.0-or-later",
+    "license":"GPL-3.0-only",
     "upload_type":"software",
     "description":"GeoSIRR (Geological Section Interpretation, Reconstruction & Refinement) is an open-source Python Framework that leverages large language models (LLMs) to translate free-form geological narratives into structured, coordinate-based cross-section geometries.",
     "keywords":[

@@ -339,7 +339,7 @@ Anikiev, D., Mosquera, J. E. , Ayranci, K., Bott, J., Waheed, U. b. (2026). GeoS
 
 ## License
 
-This project is licensed under the GNU General Public License v3.0 or later - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the GNU General Public License v3.0 - see the [LICENSE](LICENSE) file for details.
 
 [cipr]: https://cpg.kfupm.edu.sa/cipr
 [conda]: https://docs.conda.io/en/latest
