@@ -26,7 +26,9 @@ This command-line interface (CLI) version of GeoSIRR allows users to generate ge
 - [Python] 3.12
 - [PIP] package manager
 - [Conda] (optional, for environment management)
-- [OpenAI] API Key (currently GeoSIRR supports only OpenAI's GPT models)
+- One of the following provider setups:
+   - [OpenAI] API Key, or
+   - Local [Ollama] server with at least one pulled model
 
 ---
 
@@ -91,7 +93,9 @@ conda env remove -n geosirr
 
 ## Configuration
 
-This application requires an OpenAI API key to function.
+GeoSIRR can run with either OpenAI or Ollama.
+
+### OpenAI configuration
 
 1. Locate or create the `.env` file in the root application directory.
 2. Open the file with a text editor.
@@ -107,6 +111,27 @@ Alternatively, if the `.env` file is not configured, the application will prompt
 
 **Note: The key is stored only locally and is not shared or transmitted to any external servers except OpenAI's API endpoints.**
 
+### Ollama configuration
+
+1. Install [Ollama].
+2. Start Ollama service:
+
+   ```bash
+   ollama serve
+   ```
+
+3. Pull at least one model (example):
+
+   ```bash
+   ollama pull llama3.1:8b
+   ```
+
+4. Optional: set custom Ollama host in `.env`:
+
+   ```plaintext
+   OLLAMA_HOST=http://localhost:11434
+   ```
+
 ---
 
 ## Usage
@@ -117,17 +142,25 @@ To start the application, run the following command in your terminal:
 python main.py
 ```
 
-### Select LLM
+### Select LLM Provider and Model
 
-Upon startup, you will be prompted to select an LLM from a list of three most relevant OpenAI models, e.g.:
+Upon startup, you will be prompted to select an LLM provider:
+
+1. OpenAI
+2. Ollama (local)
+
+Then you can select a model for that provider.
+
+For OpenAI, the default shortlist is:
 
 1. gpt-5 (default, recommended)
 2. gpt-5.1
 3. gpt-5.2
 
-you can also enter a custom LLM name if your desired model is not listed (option 4).
+For Ollama, GeoSIRR will list your local models discovered from Ollama.
+You can also enter a custom LLM name if your desired model is not listed.
 
-If you select a custom LLM name, the application will validate whether the specified model is recognized. If the model is not recognized, a list of valid models will be displayed, and you can use option 4 again to re-enter a valid model name.
+If you select a custom LLM name, the application will validate whether the specified model is recognized. If the model is not recognized, a list of valid models will be displayed, and you can re-enter a valid model name.
 
 Select 0 to exit the application.
 
@@ -313,6 +346,13 @@ At 2 km the basement shows thinning towards W. Above the basement, there are 8 l
 - Ensure you have entered your key in the `.env` file correctly.
 - Ensure there are no extra spaces around the key.
 
+**Issue: "Ollama server is not running"**
+- Start Ollama service with `ollama serve`.
+- Ensure `OLLAMA_HOST` points to the running server.
+
+**Issue: "No Ollama models found"**
+- Pull at least one model, for example: `ollama pull llama3.1:8b`.
+
 **Issue: "Module not found"**
 - Ensure you have installed all dependencies using `pip install .`.
 
@@ -356,6 +396,7 @@ This project is licensed under the GNU General Public License v3.0 - see the [LI
 [llms]: https://en.wikipedia.org/wiki/Large_language_model
 [matplotlib]: https://matplotlib.org
 [miniforge]: https://github.com/conda-forge/miniforge
+[ollama]: https://ollama.com
 [openai]: https://openai.com
 [pip]: https://pip.pypa.io/en/stable
 [python]: https://www.python.org

@@ -57,3 +57,11 @@ api_key_*.*
 
 #presentations
 *.pptx
+
+# agents
+AGENTS.md
+.agents/
+codex_tmp/
+
+#mamba
+mamba*

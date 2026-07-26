@@ -1,15 +1,16 @@
 import os
 import sys
 from datetime import datetime
+
 import matplotlib.pyplot as plt
 from dotenv import load_dotenv
 
 # Add current directory to path to ensure imports work
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
+import clarification
 import geosirr as gs
 import templates
-import clarification
 
 # Constants
 ENV_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
@@ -28,15 +29,15 @@ def print_header():
     print(" --------------------------------------------------------------")
     print(" This app generates geological cross-sections:)")
     print(" from textual descriptions.")
-    print(" It uses Large Language Models (LLMs) developed by OpenAI.")
+    print(" It uses Large Language Models (LLMs) via OpenAI or Ollama.")
     print(" --------------------------------------------------------------")
     print(" Developed by Denis Anikiev and Juan Mosquera, KFUPM, 2025")
     print(" GitHub: https://github.com/CPG-KFUPM/GeoSIRR")
     print("================================================================")
-    print("")
+    print()
 
-def get_api_key():
-    """Get API key from .env file or user input."""
+def get_openai_api_key():
+    """Get OpenAI API key from .env file or user input."""
     # 1. Try to load from .env file
     load_dotenv(ENV_FILE)
     key = os.environ.get("OPENAI_API_KEY")
@@ -64,49 +65,124 @@ def get_api_key():
         print("An OpenAI API Key is required to proceed.")
         sys.exit(1)
 
+
+def select_backend():
+    """Allow user to select LLM backend/provider."""
+    print("\nSelect LLM provider:")
+    print("1. OpenAI (cloud)")
+    print("2. Ollama (local)")
+    print("Use 0 to exit application.")
+
+    while True:
+        choice = input("\nEnter choice (default 1): ").strip()
+        if not choice:
+            return "openai"
+        if choice == "1":
+            return "openai"
+        if choice == "2":
+            return "ollama"
+        if choice == "0":
+            print("Exiting...")
+            sys.exit(0)
+        print("Invalid selection. Please enter 0, 1, or 2.")
+
+
+def setup_backend(backend):
+    """Prepare provider-specific runtime settings and checks."""
+    if backend == "openai":
+        return get_openai_api_key()
+
+    if backend == "ollama":
+        load_dotenv(ENV_FILE)
+        host = os.environ.get("OLLAMA_HOST", "http://localhost:11434").strip()
+        os.environ["OLLAMA_HOST"] = host
+        if not gs.llm.is_ollama_running(host):
+            print(f"Ollama server is not running at {host}.")
+            print("Please start Ollama and try again.")
+            print("Example: `ollama serve` and then `ollama pull llama3.1:8b`")
+            sys.exit(1)
+        print(f"Ollama detected at {host}.")
+        return None
+
+    raise ValueError(f"Unsupported backend: {backend}")
+
 def ensure_directories():
     if not os.path.exists(OUTPUT_DIR):
         os.makedirs(OUTPUT_DIR)
     if not os.path.exists(PROMPTS_DIR):
         os.makedirs(PROMPTS_DIR)
 
-def select_model():
-    """Allow user to select the LLM model."""
-    models = [
-        "gpt-5",
-        "gpt-5.1",
-        "gpt-5.2",
-    ]
-    
-    print("\nSelect an LLM from OpenAI (gpt-5 is recommended):")
-    for i, m in enumerate(models):
-        print(f"{i+1}. {m}")
-    print(f"{len(models)+1}. Enter custom LLM name")
-    print("Use 0 to exit application.")
-    
-    while True:        
-        choice = input("\nEnter choice (default 1): ").strip()
-        if not choice:
-            return models[0]
-            
+def select_model(backend):
+    """Allow user to select the LLM model for the selected backend."""
+    if backend == "openai":
+        models = [
+            "gpt-5",
+            "gpt-5.1",
+            "gpt-5.2",
+        ]
+    elif backend == "ollama":
         try:
-            idx = int(choice) - 1
-            if 0 <= idx < len(models):
-                print(f"Selected model: {models[idx]}")
-                return models[idx]
-            elif idx == len(models):
-                custom_model = input("Enter custom LLM name: ").strip()
-                if not gs.llm.validate_llm(llm_backend="openai", llm_name=custom_model):
-                    print(f"The specified model {custom_model} is not recognized.")
-                    raise ValueError("Invalid model name.") 
-                return custom_model
-            elif idx == -1:
+            models = gs.llm.get_ollama_models()
+        except Exception as e:
+            print(f"Could not retrieve Ollama models: {e}")
+            models = []
+    else:
+        raise ValueError(f"Unsupported backend: {backend}")
+
+    if backend == "openai":
+        print("\nSelect an LLM from OpenAI (gpt-5 is recommended):")
+    else:
+        print("\nSelect an LLM from Ollama (local models):")
+
+    if models:
+        for i, m in enumerate(models):
+            print(f"{i+1}. {m}")
+        print(f"{len(models)+1}. Enter custom LLM name")
+    else:
+        print("No local models were discovered. Enter a custom model name.")
+        print("Example: llama3.1:8b")
+
+    print("Use 0 to exit application.")
+
+    while True:
+        if models:
+            choice = input("\nEnter choice (default 1): ").strip()
+            if not choice:
+                print(f"Selected model: {models[0]}")
+                return models[0]
+
+            try:
+                idx = int(choice) - 1
+                if 0 <= idx < len(models):
+                    print(f"Selected model: {models[idx]}")
+                    return models[idx]
+                if idx == len(models):
+                    custom_model = input("Enter custom LLM name: ").strip()
+                elif idx == -1:
+                    print("Exiting...")
+                    sys.exit(0)
+                else:
+                    print("Invalid selection. Please enter a number.")
+                    continue
+            except ValueError:
+                print("Please try again.")
+                continue
+        else:
+            custom_model = input("Enter model name (or 0 to exit): ").strip()
+            if custom_model == "0":
                 print("Exiting...")
                 sys.exit(0)
-            else:
-                print("Invalid selection. Please enter a number.")
-        except ValueError:
-            print("Please try again.")
+
+        if not custom_model:
+            print("Model name cannot be empty.")
+            continue
+
+        if not gs.llm.validate_llm(llm_backend=backend, llm_name=custom_model):
+            print(f"The specified model {custom_model} is not recognized.")
+            continue
+
+        print(f"Selected model: {custom_model}")
+        return custom_model
                 
 
 def select_template():
@@ -128,16 +204,22 @@ def select_template():
         except ValueError:
             print("Please enter a number.")
 
-def process_description(description, api_key, model_name, last_refinement=None, last_result=None):
+def process_description(description, api_key, llm_backend, model_name, last_refinement=None, last_result=None):
     """
     Process the description: Clarify -> Generate -> Validate -> Plot
     """
-    os.environ["OPENAI_API_KEY"] = api_key
+    if llm_backend == "openai" and api_key:
+        os.environ["OPENAI_API_KEY"] = api_key
    
-    print(f"\n--- Using Model: {model_name} ---")
+    print(f"\n--- Using Backend: {llm_backend} ---")
+    print(f"--- Using Model: {model_name} ---")
     
     print("\n--- Validating Description ---")
-    validation = clarification.validate_description(description, llm_model=model_name)
+    validation = clarification.validate_description(
+        description,
+        llm_model=model_name,
+        llm_backend=llm_backend,
+    )
     
     print(f"Status: {validation.get('status', 'unknown')}")
     print(f"Confidence: {validation.get('confidence', 0)}%")
@@ -187,7 +269,7 @@ def process_description(description, api_key, model_name, last_refinement=None, 
             instruction_prompt=system_prompt,
             text=description,
             image_files=None,
-            llm_backend="openai",
+            llm_backend=llm_backend,
             llm_name=model_name,
             llm_params=None,
             max_gen_iterations=5,
@@ -270,7 +352,7 @@ def process_description(description, api_key, model_name, last_refinement=None, 
                     else:
                         new_refinement = f"Result of the previous generation:\n{text_result}\n---\nRefinement Request: {refinement}\n"
                     new_description = f"{description}\n\n{new_refinement}"                    
-                    process_description(new_description, api_key, model_name,new_refinement)                    
+                    process_description(new_description, api_key, llm_backend, model_name, new_refinement)
                     return # Exit this instance of process_description to avoid deep recursion stack
             elif refine_choice == '2':
                 question = input("\nEnter your question about the section: ").strip()
@@ -280,7 +362,8 @@ def process_description(description, api_key, model_name, last_refinement=None, 
                         definition=text_result,
                         description=description,
                         api_key=api_key,
-                        llm_model=model_name
+                        llm_model=model_name,
+                        llm_backend=llm_backend,
                     )
                     if answer:
                         print(f"\nAnswer:\n{answer}")
@@ -305,8 +388,9 @@ def main():
     clear_screen()
     print_header()
     
-    api_key = get_api_key()
-    model_name = select_model()
+    llm_backend = select_backend()
+    api_key = setup_backend(llm_backend)
+    model_name = select_model(llm_backend)
     
     while True:
         print("\nMain Menu:")
@@ -321,7 +405,7 @@ def main():
             if template:
                 #print(f"\nSelected Template:\n{template[:100]}...")
                 print(f"\nSelected Template:\n{template}...")
-                process_description(template, api_key, model_name)
+                process_description(template, api_key, llm_backend, model_name)
         
         elif choice == '2':
             print("\nEnter your geological description (press Enter on an empty line to finish):")
@@ -335,7 +419,7 @@ def main():
             
             if description:
                 print("\nProcessing description...")
-                process_description(description, api_key, model_name)
+                process_description(description, api_key, llm_backend, model_name)
             else:
                 print("Empty description.")
                 
