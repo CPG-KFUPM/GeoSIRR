@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Model selection, description validation, generation, refinement, and question-answering now thread the selected backend (OpenAI or Ollama) through all LLM calls instead of assuming OpenAI.
 - Cross-section plots are saved to PNG before being displayed interactively, instead of after.
+- Updated the list of available OpenAI models and changed the sorting order to prioritize the latest models first.
 
 ### Fixed
 
