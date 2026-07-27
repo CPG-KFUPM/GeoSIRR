@@ -1,9 +1,11 @@
 import os
+
 import matplotlib.pyplot as plt
-from matplotlib.patches import Polygon
-from matplotlib import cm
 import numpy as np
+from matplotlib.patches import Polygon
+
 from . import io
+
 
 def plot_cross_section(definition: str=None,                       
                        filename: str=None,
@@ -97,7 +99,7 @@ def plot_cross_section(definition: str=None,
     fig, ax = plt.subplots(figsize=figsize)
 
     # Extract raw bases (before any '^') in original order
-    bases = [name.split('^', 1)[0] for name in polygons.keys()]
+    bases = [name.split('^', 1)[0] for name in polygons]
     unique_bases = list(dict.fromkeys(bases))  # preserve appearance order
         
     # Get colormap
@@ -111,7 +113,7 @@ def plot_cross_section(definition: str=None,
             colormap = 'tab20'
         else:
             colormap = 'viridis'
-    cmap = cm.get_cmap(colormap, ncolors)
+    cmap = plt.colormaps[colormap].resampled(ncolors)
     
     # Map each base to its color
     color_map = {base: cmap(i) for i, base in enumerate(unique_bases)}
@@ -172,16 +174,17 @@ def plot_cross_section(definition: str=None,
               fontsize='small')
 
     plt.tight_layout()
+
+    # Save the figure if a filename is provided (before showing interactively)
+    if filename:
+        fig.savefig(filename, bbox_inches='tight', dpi=300)
+        print(f"Plot saved to {filename}")
+
     plt.show(block=False)  # Show plot without blocking execution
 
     # Make sure it renders immediately
     fig.canvas.draw()        # draw the figure
     fig.canvas.flush_events()  # push events to the GUI
     plt.pause(0.001)         # short pause to let the GUI update
-
-    # Save the figure if a filename is provided
-    if filename:
-        fig.savefig(filename, bbox_inches='tight', dpi=300)
-        print(f"Plot saved to {filename}")
 
     return fig, ax

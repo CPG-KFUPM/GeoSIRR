@@ -13,10 +13,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Interactive LLM provider selection (OpenAI or Ollama) at application startup.
 - Automatic Ollama server health check and local model discovery.
 - Documentation for Ollama installation, configuration, and troubleshooting in the README.
+- `get_ollama_models()` parses the `ollama.list()` response object, showing locally installed Ollama models.
 
 ### Changed
 
 - Model selection, description validation, generation, refinement, and question-answering now thread the selected backend (OpenAI or Ollama) through all LLM calls instead of assuming OpenAI.
+- Cross-section plots are saved to PNG before being displayed interactively, instead of after.
+
+### Fixed
+
+- Replaced the removed `matplotlib.cm.get_cmap()` call with `matplotlib.pyplot.colormaps[...]`, fixing an `AttributeError: module 'matplotlib.cm' has no attribute 'get_cmap'` when plotting cross sections on recent Matplotlib versions.
 
 ## [1.0.0] - 2025-12-30
 
