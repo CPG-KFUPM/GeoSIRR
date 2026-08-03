@@ -31,7 +31,7 @@ def print_header():
     print(" from textual descriptions.")
     print(" It uses Large Language Models (LLMs) via OpenAI or Ollama.")
     print(" --------------------------------------------------------------")
-    print(" Developed by Denis Anikiev and Juan Mosquera, KFUPM, 2025")
+    print(" Developed by Denis Anikiev and Juan Mosquera, KFUPM, 2025-2026")
     print(" GitHub: https://github.com/CPG-KFUPM/GeoSIRR")
     print("================================================================")
     print()
