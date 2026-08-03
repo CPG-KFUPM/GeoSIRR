@@ -27,7 +27,7 @@ def print_header():
     print(" Geological Section Interpretation, Reconstruction & Refinement")
     print(" Version:", gs.__version__)
     print(" --------------------------------------------------------------")
-    print(" This app generates geological cross-sections:)")
+    print(" This app generates geological cross-sections")
     print(" from textual descriptions.")
     print(" It uses Large Language Models (LLMs) via OpenAI or Ollama.")
     print(" --------------------------------------------------------------")
