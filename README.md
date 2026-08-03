@@ -147,10 +147,10 @@ Alternatively, if the `.env` file is not configured, the application will prompt
    ollama serve
    ```
 
-3. Pull at least one model (example):
+3. Pull a model (example):
 
    ```bash
-   ollama pull llama3.1:8b
+   ollama pull gemma4:e4b
    ```
 
 4. Optional: set custom Ollama host in `.env`:
@@ -173,21 +173,30 @@ python main.py
 
 Upon startup, you will be prompted to select an LLM provider:
 
-1. OpenAI
+1. OpenAI (cloud)
 2. Ollama (local)
 
 Then you can select a model for that provider.
 
 For OpenAI, the default shortlist is:
 
-1. gpt-5 (default, recommended)
-2. gpt-5.1
-3. gpt-5.2
+1. gpt-5.6 (default, recommended)
+2. gpt-5.5
+3. gpt-5.4
+4. gpt-5.3
+5. gpt-5.2
+6. gpt-5.1
 
 For Ollama, GeoSIRR will list your local models discovered from Ollama.
 You can also enter a custom LLM name if your desired model is not listed.
 
 If you select a custom LLM name, the application will validate whether the specified model is recognized. If the model is not recognized, a list of valid models will be displayed, and you can re-enter a valid model name.
+
+To use a differnt Ollama host, set the `OLLAMA_HOST` environment variable in the `.env` file or in your shell before starting the application:
+
+```bash
+export OLLAMA_HOST=http://YourHostIP:11434
+```
 
 Select 0 to exit the application.
 
