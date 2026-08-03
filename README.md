@@ -89,6 +89,21 @@ python -m pip install -r requirements.txt
 
 The requirements file pins the complete dependency set validated with Python 3.12, so conda and `venv` users receive the same tested package versions.
 
+If you don't have Python 3.12 installed, you can install it from the official [Python website](https://www.python.org/downloads/release/python-3120/).
+
+On Ubuntu, you can install Python 3.12 with:
+
+```bash
+sudo apt update
+sudo apt install python3.12 python3.12-venv python3.12-dev
+```
+
+and on macOS, you can use [Homebrew](https://brew.sh/):
+
+```bash
+brew install python@3.12
+```
+
 ### Verify the installation
 
 With either environment activated, run:
@@ -107,13 +122,25 @@ python main.py
 
 ## Uninstallation
 
-For a `venv` installation, deactivate the environment and delete the `.venv` directory. This removes the isolated environment without affecting other Python installations.
+For a `venv` installation, deactivate the environment with
+
+```bash
+deactivate
+```
+
+and delete the `.venv` directory. This removes the isolated environment without affecting other Python installations.
 
 For a conda installation, deactivate and remove the environment:
 
 ```bash
 conda deactivate
 conda env remove -n geosirr
+```
+
+Additionally, to clean up package caches, run:
+
+```bash
+conda clean --all
 ```
 
 ---
