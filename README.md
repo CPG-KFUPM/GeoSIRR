@@ -23,9 +23,10 @@ This command-line interface (CLI) version of GeoSIRR allows users to generate ge
 
 ## Prerequisites
 
-- [Python] 3.12
-- [PIP] package manager
-- [Conda] (optional, for environment management)
+- A local copy of this repository
+- One of the following Python environment options:
+   - [Conda] or [Miniforge] (recommended), or
+   - [Python] 3.12 with its built-in `venv` module and [pip]
 - One of the following provider setups:
    - [OpenAI] API Key, or
    - Local [Ollama] server with at least one pulled model
@@ -34,58 +35,84 @@ This command-line interface (CLI) version of GeoSIRR allows users to generate ge
 
 ## Installation
 
-To install packages you can use either [pip], [conda] or any other package manager.
-Below are the instructions for [pip](#installation-using-pip) and [conda](#installation-using-conda).
-
-### Installation using pip
-
-Install the required Python packages:
+First, clone the repository and enter its root directory:
 
 ```bash
-pip install .
+git clone https://github.com/CPG-KFUPM/GeoSIRR.git
+cd GeoSIRR
 ```
 
-or alternatively, install from the [`requirements.txt`](requirements.txt) file:
+Alternatively, download and extract the repository archive, then open a terminal in the extracted `GeoSIRR` directory.
 
-```bash
-pip install -r requirements.txt
-```
+Choose either the conda or `venv` installation below. Keep the selected environment activated and run all GeoSIRR commands from the repository root.
 
-### Installation using conda
+### Option 1: Conda (recommended)
 
-Create a new conda environment and install the required packages from the provided [`environment.yml`](environment.yml) file. This file contains all the necessary Python dependencies.
-
-Type this command, for instance, in [Miniforge] prompt:
+Create the `geosirr` environment from [`environment.yml`](environment.yml):
 
 ```bash
 conda env create -f environment.yml
-```
-
-or just
-
-```bash
-conda env create
-```
-
-Then activate the environment:
-
-```bash
 conda activate geosirr
+```
+
+If the `geosirr` environment already exists, update it instead:
+
+```bash
+conda env update -n geosirr -f environment.yml
+conda activate geosirr
+```
+
+### Option 2: Python virtual environment (`venv`)
+
+Create a Python 3.12 virtual environment.
+
+On macOS or Linux:
+
+```bash
+python3.12 -m venv .venv
+source .venv/bin/activate
+```
+
+On Windows PowerShell:
+
+```bash
+py -3.12 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+```
+
+Then install the dependencies into the activated environment:
+
+```bash
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+```
+
+The requirements file pins the complete dependency set validated with Python 3.12, so conda and `venv` users receive the same tested package versions.
+
+### Verify the installation
+
+With either environment activated, run:
+
+```bash
+python -c "import main; print('GeoSIRR installation is ready')"
+```
+
+Then start GeoSIRR:
+
+```bash
+python main.py
 ```
 
 ---
 
 ## Uninstallation
 
-To uninstall GeoSIRR dependencies, you can use pip:
+For a `venv` installation, deactivate the environment and delete the `.venv` directory. This removes the isolated environment without affecting other Python installations.
+
+For a conda installation, deactivate and remove the environment:
 
 ```bash
-pip uninstall -r requirements.txt -y
-```
-
-or if you installed using conda, you can remove the environment:
-
-```bash
+conda deactivate
 conda env remove -n geosirr
 ```
 
@@ -136,7 +163,7 @@ Alternatively, if the `.env` file is not configured, the application will prompt
 
 ## Usage
 
-To start the application, run the following command in your terminal:
+From the repository root, activate the environment you created during installation and run:
 
 ```bash
 python main.py
@@ -190,7 +217,7 @@ Generated files are saved in the `output` directory.
 
 Files are named with a timestamp (e.g., `section_2025-12-26_10-30-00.png`) to prevent overwriting.
 
-DSL definitions can be found in the main prompt in file `prompts/section_text_generation_prompt.md`.
+DSL definitions can be found in the main prompt in file [`prompts/section_text_generation.md`](prompts/section_text_generation.md).
 
 ### Refining Sections
 
@@ -354,7 +381,8 @@ At 2 km the basement shows thinning towards W. Above the basement, there are 8 l
 - Pull at least one model, for example: `ollama pull llama3.1:8b`.
 
 **Issue: "Module not found"**
-- Ensure you have installed all dependencies using `pip install .`.
+- Ensure the `geosirr` conda environment or `.venv` virtual environment is activated.
+- Ensure you installed the dependencies and are running `python main.py` from the repository root.
 
 **Issue: Topology Validation Errors**
 - The LLM may occasionally generate geometrically invalid shapes. If this happens, try generating the section again or refining the description to be more specific.
