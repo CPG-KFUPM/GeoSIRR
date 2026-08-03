@@ -116,9 +116,13 @@ def select_model(backend):
     """Allow user to select the LLM model for the selected backend."""
     if backend == "openai":
         models = [
-            "gpt-5",
-            "gpt-5.1",
+            "gpt-5.6",
+            "gpt-5.5",
+            "gpt-5.4",
+            "gpt-5.3",
             "gpt-5.2",
+            "gpt-5.1",
+            "gpt-5",
         ]
     elif backend == "ollama":
         try:
