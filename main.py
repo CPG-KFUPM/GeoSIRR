@@ -99,7 +99,7 @@ def setup_backend(backend):
         if not gs.llm.is_ollama_running(host):
             print(f"Ollama server is not running at {host}.")
             print("Please start Ollama and try again.")
-            print("Example: `ollama serve` and then `ollama pull llama3.1:8b`")
+            print("Example: `ollama serve` and then `ollama pull gemma4:e4b`")
             sys.exit(1)
         print(f"Ollama detected at {host}.")
         return None
