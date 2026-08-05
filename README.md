@@ -29,7 +29,7 @@ This command-line interface (CLI) version of GeoSIRR allows users to generate ge
    - [Python] 3.12 with its built-in `venv` module and [pip]
 - One of the following provider setups:
    - [OpenAI] API Key, or
-   - Local [Ollama] server with at least one pulled model
+   - An accessible local or remote [Ollama] server with at least one pulled model
 
 ---
 
@@ -180,11 +180,14 @@ Alternatively, if the `.env` file is not configured, the application will prompt
    ollama pull gemma4:e4b
    ```
 
-4. Optional: set custom Ollama host in `.env`:
+4. Optional: set a custom local or remote Ollama host in the repository `.env` file:
 
    ```plaintext
-   OLLAMA_HOST=http://localhost:11434
+   OLLAMA_HOST=http://your-ollama-host:11434
    ```
+
+   GeoSIRR (`main.py`) and the uncertainty-quantification experiment (`experiments/uq_experiment.py`) both read this variable.
+   If it is absent, they use `http://localhost:11434`. The `.env` file is ignored by Git, so machine-specific host addresses and API keys remain local.
 
 ---
 
@@ -201,7 +204,7 @@ python main.py
 Upon startup, you will be prompted to select an LLM provider:
 
 1. OpenAI (cloud)
-2. Ollama (local)
+2. Ollama (local/cloud)
 
 Then you can select a model for that provider.
 
@@ -220,13 +223,13 @@ You can also enter a custom LLM name if your desired model is not listed.
 
 If you select a custom LLM name, the application will validate whether the specified model is recognized. If the model is not recognized, a list of valid models will be displayed, and you can re-enter a valid model name.
 
-To use a differnt Ollama host, set the `OLLAMA_HOST` environment variable in the `.env` file or in your shell before starting the application:
+To use a different Ollama host, set the `OLLAMA_HOST` environment variable in the `.env` file or in your shell before starting the application:
 
 ```bash
-export OLLAMA_HOST=http://YourHostIP:11434
+export OLLAMA_HOST=http://your-ollama-host:11434
 ```
 
-Select 0 to exit the application.
+To exit the application select 0.
 
 ### Main Menu
 
@@ -251,10 +254,59 @@ Generated files are saved in the `output` directory.
 
 - **Text Files (.txt):** Contain the coordinate and polygon (DSL) definitions of the cross-section.
 - **Image Files (.png):** Visualizations of the generated cross-sections.
+- **Run Logs (.log):** Start/end timestamps, status, and runtime for every generation stage and the complete workflow.
 
 Files are named with a timestamp (e.g., `section_2025-12-26_10-30-00.png`) to prevent overwriting.
 
 DSL definitions can be found in the main prompt in file [`prompts/section_text_generation.md`](prompts/section_text_generation.md).
+
+### Uncertainty-quantification experiment
+
+The experiment runner [`experiments/uq_experiment.py`](experiments/uq_experiment.py) executes ten independent GeoSIRR generations from a Markdown description and analyzes only the final returned geometry from each run. It uses the exact Ollama model requested, never pulls or substitutes a model, and reads the Ollama server from `OLLAMA_HOST` in `.env`. The default model is `gemma4:31b`.
+
+The current analysis profile is specific to the 20 km by 5 km listric-fault experiment: it extracts the shared fault contact from x = 8 km at the surface to the section base. Different descriptions of that same experiment can be supplied with `--description`.
+
+Two descriptions are provided:
+
+- [`experiments/listric_fault_baseline.md`](experiments/listric_fault_baseline.md) reproduces the original template description.
+- [`experiments/listric_fault_constrained.md`](experiments/listric_fault_constrained.md) fixes the seven fault control points and polygon suffixes to test whether a more specific prompt reduces generated variability.
+
+With the `geosirr` environment activated, run the baseline experiment with the defaults:
+
+```bash
+python experiments/uq_experiment.py
+```
+
+Run the constrained-description experiment separately:
+
+```bash
+python experiments/uq_experiment.py \
+  --description experiments/listric_fault_constrained.md
+```
+
+Override the model when required, e.g.:
+
+```bash
+python experiments/uq_experiment.py --model gemma4:26b
+```
+
+Each model/description combination receives a separate directory named `output/uq_<description>_<model>`. A completed directory can be reanalyzed without contacting Ollama:
+
+```bash
+python experiments/uq_experiment.py \
+  --description experiments/listric_fault_constrained.md \
+  --analyze-only
+```
+
+Use `--output-dir` when reading or writing a non-default directory. Existing per-run records in that directory are retained and skipped, allowing an interrupted experiment to resume.
+
+The summary distinguishes three populations:
+
+- `R_gen`: final outputs passing both GeoSIRR validators;
+- `R_line`: final outputs with an extractable surface-to-base fault polyline, used in the proximity heat map;
+- `R_fault`: outputs with exactly six fault segments and seven ordered vertices, used for per-vertex covariance, uncertainty ellipses, and $U_\mathrm{RMS}$.
+
+The heat map is an empirical probability-of-proximity map over generated final geometries. It is not a probability of the fault's real subsurface location. Comparing the baseline and constrained descriptions measures sensitivity to prompt specificity, not geological epistemic uncertainty.
 
 ### Refining Sections
 
