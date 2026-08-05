@@ -1,5 +1,7 @@
 import os
 import sys
+import time
+from contextlib import contextmanager
 from datetime import datetime
 
 import matplotlib.pyplot as plt
@@ -17,6 +19,79 @@ ENV_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
 OUTPUT_DIR = "output"
 PROMPTS_DIR = os.path.join("prompts")
 SECTION_PROMPT_FILE = os.path.join(PROMPTS_DIR, "section_text_generation.md")
+
+
+class _RunLogger:
+    """Record stage and total runtimes for one generation workflow."""
+
+    def __init__(self, timestamp, backend, model_name):
+        self.path = os.path.join(OUTPUT_DIR, f"run_{timestamp}.log")
+        self.backend = backend
+        self.model_name = model_name
+        self.started_at = datetime.now().astimezone()
+        self.started_clock = time.perf_counter()
+        self.stages = []
+        self.finished = False
+
+    @contextmanager
+    def stage(self, name):
+        record = {
+            "name": name,
+            "start_time": datetime.now().astimezone(),
+            "status": "success",
+        }
+        started_clock = time.perf_counter()
+        try:
+            yield record
+        except Exception as exc:
+            record["status"] = "failed"
+            record["error"] = f"{type(exc).__name__}: {exc}"
+            raise
+        finally:
+            record["end_time"] = datetime.now().astimezone()
+            record["runtime_seconds"] = time.perf_counter() - started_clock
+            self.stages.append(record)
+            print(f"{name.replace('_', ' ').title()} runtime: {record['runtime_seconds']:.2f} s")
+
+    def finish(self, status):
+        if self.finished:
+            return
+        self.finished = True
+        ended_at = datetime.now().astimezone()
+        runtime = time.perf_counter() - self.started_clock
+        if status == "success" and any(stage["status"] == "failed" for stage in self.stages):
+            status = "completed_with_errors"
+
+        lines = [
+            "GeoSIRR generation run",
+            f"status: {status}",
+            f"backend: {self.backend}",
+            f"model: {self.model_name}",
+            f"start_time: {self.started_at.isoformat(timespec='seconds')}",
+            f"end_time: {ended_at.isoformat(timespec='seconds')}",
+            f"runtime_seconds: {runtime:.6f}",
+            "stages:",
+        ]
+        for stage in self.stages:
+            lines.extend(
+                [
+                    f"  - name: {stage['name']}",
+                    f"    status: {stage['status']}",
+                    f"    start_time: {stage['start_time'].isoformat(timespec='seconds')}",
+                    f"    end_time: {stage['end_time'].isoformat(timespec='seconds')}",
+                    f"    runtime_seconds: {stage['runtime_seconds']:.6f}",
+                ]
+            )
+            if stage.get("error"):
+                lines.append(f"    error: {stage['error']}")
+
+        try:
+            with open(self.path, "w", encoding="utf-8") as f:
+                f.write("\n".join(lines) + "\n")
+            print(f"Run log saved to: {self.path}")
+        except OSError as exc:
+            print(f"Warning: Could not save run log: {exc}")
+        print(f"Total workflow runtime: {runtime:.2f} s")
 
 def clear_screen():
     os.system('cls' if os.name == 'nt' else 'clear')
@@ -212,6 +287,9 @@ def process_description(description, api_key, llm_backend, model_name, last_refi
     """
     Process the description: Clarify -> Generate -> Validate -> Plot
     """
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    run_log = _RunLogger(timestamp, llm_backend, model_name)
+
     if llm_backend == "openai" and api_key:
         os.environ["OPENAI_API_KEY"] = api_key
    
@@ -219,11 +297,16 @@ def process_description(description, api_key, llm_backend, model_name, last_refi
     print(f"--- Using Model: {model_name} ---")
     
     print("\n--- Validating Description ---")
-    validation = clarification.validate_description(
-        description,
-        llm_model=model_name,
-        llm_backend=llm_backend,
-    )
+    try:
+        with run_log.stage("description_validation"):
+            validation = clarification.validate_description(
+                description,
+                llm_model=model_name,
+                llm_backend=llm_backend,
+            )
+    except Exception:
+        run_log.finish("error")
+        raise
     
     print(f"Status: {validation.get('status', 'unknown')}")
     print(f"Confidence: {validation.get('confidence', 0)}%")
@@ -241,6 +324,7 @@ def process_description(description, api_key, llm_backend, model_name, last_refi
         proceed = input("\nDo you want to proceed anyway? (y/n): ").strip().lower()
         if proceed != 'y':
             print("Operation cancelled. Please refine your description.")
+            run_log.finish("cancelled")
             return
 
     print("\n--- Generating Cross Section ---")
@@ -248,94 +332,116 @@ def process_description(description, api_key, llm_backend, model_name, last_refi
     
     # Read system prompt
     try:
-        with open(SECTION_PROMPT_FILE, "r", encoding="utf-8") as f:
-            system_prompt = f.read()
+        with run_log.stage("prompt_loading"):
+            with open(SECTION_PROMPT_FILE, "r", encoding="utf-8") as f:
+                system_prompt = f.read()
     except FileNotFoundError:
         print(f"Error: System prompt file not found at {SECTION_PROMPT_FILE}")
+        run_log.finish("prompt_loading_failed")
         return
-    
-    # Save timestamp for file naming
-    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
     # Save original description for reference
-    try:        
-        description_filename = f"description_{timestamp}.md"
-        description_filepath = os.path.join(OUTPUT_DIR, description_filename)
-        with open(description_filepath, "w", encoding="utf-8") as f:
-            f.write(description)
-        print(f"User description saved to: {description_filepath}")
-    except Exception as e:
-        print(f"Warning: Could not save description file: {e}")
+    with run_log.stage("description_saving") as stage:
+        try:
+            description_filename = f"description_{timestamp}.md"
+            description_filepath = os.path.join(OUTPUT_DIR, description_filename)
+            with open(description_filepath, "w", encoding="utf-8") as f:
+                f.write(description)
+            print(f"User description saved to: {description_filepath}")
+        except OSError as e:
+            stage["status"] = "failed"
+            stage["error"] = f"{type(e).__name__}: {e}"
+            print(f"Warning: Could not save description file: {e}")
     
     # Generate section
     try:
-        success, text_result, full_prompt, _ = gs.llm.generate_section_text(
-            instruction_prompt=system_prompt,
-            text=description,
-            image_files=None,
-            llm_backend=llm_backend,
-            llm_name=model_name,
-            llm_params=None,
-            max_gen_iterations=5,
-            max_chats=1,
-            only_prompt=False,
-            section_preview=False,
-            verbose=True
-        )
+        with run_log.stage("cross_section_generation"):
+            success, text_result, full_prompt, _ = gs.llm.generate_section_text(
+                instruction_prompt=system_prompt,
+                text=description,
+                image_files=None,
+                llm_backend=llm_backend,
+                llm_name=model_name,
+                llm_params=None,
+                max_gen_iterations=5,
+                max_chats=1,
+                only_prompt=False,
+                section_preview=False,
+                verbose=True
+            )
         
         if not success:
             print("\nGeneration failed.")
+            run_log.finish("generation_failed")
             return
         else:
             # Save full prompt for reference
-            prompt_filename = f"full_prompt_{timestamp}.md"
-            prompt_filepath = os.path.join(OUTPUT_DIR, prompt_filename)
-            with open(prompt_filepath, "w", encoding="utf-8") as f:
-                f.write(full_prompt)
-            print(f"Full prompt saved to: {prompt_filepath}")            
+            with run_log.stage("prompt_saving"):
+                prompt_filename = f"full_prompt_{timestamp}.md"
+                prompt_filepath = os.path.join(OUTPUT_DIR, prompt_filename)
+                with open(prompt_filepath, "w", encoding="utf-8") as f:
+                    f.write(full_prompt)
+                print(f"Full prompt saved to: {prompt_filepath}")
 
         print("\n--- Validating Result ---")
-        is_valid_format, format_errors = gs.io.validate_cross_section_format(text_result)
-        
+        with run_log.stage("result_validation") as stage:
+            is_valid_format, format_errors = gs.io.validate_cross_section_format(text_result)
+
+            if not is_valid_format:
+                stage["status"] = "failed"
+                stage["error"] = "Format validation failed: " + "; ".join(format_errors)
+                print("Format Validation Failed:")
+                for err in format_errors:
+                    print(f"- {err}")
+            else:
+                print("Format Validation: PASSED")
+                is_valid_topology, topology_errors = gs.io.validate_cross_section_topology(text_result)
+                if not is_valid_topology:
+                    stage["status"] = "failed"
+                    stage["error"] = "Topology validation failed: " + "; ".join(topology_errors)
+                    print("Topology Validation Failed:")
+                    for err in topology_errors:
+                        print(f"- {err}")
+                    # We might still want to plot it to show the error
+                    print("Attempting to plot despite topology errors...")
+                else:
+                    print("Topology Validation: PASSED")
+
         if not is_valid_format:
-            print("Format Validation Failed:")
-            for err in format_errors:
-                print(f"- {err}")
+            run_log.finish("validation_failed")
             return
-        else:
-            print("Format Validation: PASSED")
-            
-        is_valid_topology, topology_errors = gs.io.validate_cross_section_topology(text_result)
-        if not is_valid_topology:
-            print("Topology Validation Failed:")
-            for err in topology_errors:
-                print(f"- {err}")
-            # We might still want to plot it to show the error
-            print("Attempting to plot despite topology errors...")
-        else:
-            print("Topology Validation: PASSED")
 
         # Save result
         gen_timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        filename = f"section_{gen_timestamp}.txt"
-        filepath = os.path.join(OUTPUT_DIR, filename)
-        with open(filepath, "w") as f:
-            f.write(text_result)
-        print(f"\nResult saved to: {filepath}")
+        with run_log.stage("result_saving"):
+            filename = f"section_{gen_timestamp}.txt"
+            filepath = os.path.join(OUTPUT_DIR, filename)
+            with open(filepath, "w", encoding="utf-8") as f:
+                f.write(text_result)
+            print(f"\nResult saved to: {filepath}")
 
         # Plot
         print("\n--- Plotting ---")
-        try:
-            fig, ax = gs.vis.plot_cross_section(
-                definition=text_result,
-                title=f"Generated Section - {gen_timestamp}",
-                filename=os.path.join(OUTPUT_DIR, f"section_{gen_timestamp}.png")
-            )
+        plot_ready = False
+        with run_log.stage("plot_rendering") as stage:
+            try:
+                gs.vis.plot_cross_section(
+                    definition=text_result,
+                    title=f"Generated Section - {gen_timestamp}",
+                    filename=os.path.join(OUTPUT_DIR, f"section_{gen_timestamp}.png")
+                )
+                plot_ready = True
+            except Exception as e:
+                stage["status"] = "failed"
+                stage["error"] = f"{type(e).__name__}: {e}"
+                print(f"Error plotting: {e}")
+
+        run_log.finish("success")
+
+        if plot_ready:
             print("Plot window opening...")
             plt.show()
             print("Plot closed.")
-        except Exception as e:
-            print(f"Error plotting: {e}")
             
         # Refinement Loop
         while True:
@@ -382,6 +488,7 @@ def process_description(description, api_key, llm_backend, model_name, last_refi
                 print("Invalid choice.")
 
     except Exception as e:
+        run_log.finish("error")
         print(f"An error occurred during generation: {e}")
         import traceback
         traceback.print_exc()

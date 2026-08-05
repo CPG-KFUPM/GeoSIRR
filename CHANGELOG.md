@@ -14,11 +14,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Automatic Ollama server health check and local model discovery.
 - Documentation for Ollama installation, configuration, and troubleshooting in the README.
 - `get_ollama_models()` parses the `ollama.list()` response object, showing locally installed Ollama models.
+- Per-run log files with start/end timestamps, status, and runtime for each generation stage and the complete workflow.
 
 ### Changed
 
 - Model selection, description validation, generation, refinement, and question-answering now thread the selected backend (OpenAI or Ollama) through all LLM calls instead of assuming OpenAI.
 - Cross-section plots are saved to PNG before being displayed interactively, instead of after.
+- Stage and total workflow runtimes are now shown in the console during generation.
 - Updated the list of available OpenAI models and changed the sorting order to prioritize the latest models first.
 
 ### Fixed
