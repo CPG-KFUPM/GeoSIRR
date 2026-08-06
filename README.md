@@ -264,7 +264,7 @@ DSL definitions can be found in the main prompt in file [`prompts/section_text_g
 
 The experiment runner [`experiments/uq_experiment.py`](experiments/uq_experiment.py) executes ten independent GeoSIRR generations from a Markdown description and analyzes only the final returned geometry from each run. It uses the exact Ollama model requested, never pulls or substitutes a model, and reads the Ollama server from `OLLAMA_HOST` in `.env`. The default model is `gemma4:31b`.
 
-The analysis is geometry-agnostic: it reruns both GeoSIRR validators on every final output, reports generation statistics, and overlays every polygon boundary and every declared vertex from each valid model. Different descriptions can be supplied with `--description`.
+The analysis reruns both GeoSIRR validators on every final output, reports generation statistics, and overlays every declared vertex from each valid model. Different descriptions can be supplied with `--description`.
 
 Two descriptions are provided:
 
@@ -300,6 +300,8 @@ python experiments/uq_experiment.py \
 
 Use `--output-dir` when reading or writing a non-default directory. Existing per-run records in that directory are retained and skipped, allowing an interrupted experiment to resume.
 
+Use `--kde-bandwidth-km` to override the Gaussian smoothing bandwidth used by the vertex-density background. By default, the bandwidth is 2% of the smaller section span.
+
 The reported generation success rate is
 
 $$
@@ -308,7 +310,35 @@ $$
 
 where $N_{\mathrm{valid}}$ is the number of final outputs passing both existing GeoSIRR validators. The summary also reports generation attempts, runtimes, and the vertex and polygon counts of valid models. The LLM model and backend are written to `summary.md` and displayed in the figure legend.
 
-The figure is a direct overlay, not a probability heat map. Each run has its own color; thin lines show all polygon boundaries and markers show all declared vertices. Stable vertices therefore coincide across runs, while variable vertices form visible clusters or spreads. The analysis does not match vertices between runs and does not calculate a fault-specific mean, covariance, proximity score, or scalar geometric-uncertainty metric. Comparing the baseline and constrained descriptions measures sensitivity to prompt specificity, not geological epistemic uncertainty.
+Each run's vertices are plotted as equal-size transparent points in a separate color. DSL vertex IDs are not matched between runs. Instead, the analysis identifies side-boundary nodes as vertices at the minimum or maximum horizontal coordinate. It determines the expected boundary-coordinate set as the modal set across valid runs and checks that every run has exactly that set. If this check fails, no mean line is drawn.
+
+When the boundary check passes, the side-boundary nodes are removed. The remaining interior path in each run is ordered by depth and interpolated at 101 common depths. The black mean line is
+
+$$
+\bar{x}(z_k)=\frac{1}{N_{\mathrm{valid}}}\sum_{r=1}^{N_{\mathrm{valid}}}x_r(z_k).
+$$
+
+This depth-based interpolation permits different generated vertex counts without assuming that their IDs correspond.
+
+The background shows the relative concentration of all generated vertices. For run $r$ with $n_r$ vertices, the Gaussian kernel estimate is
+
+$$
+D_h(\mathbf q)=\frac{1}{N_{\mathrm{valid}}}\sum_{r=1}^{N_{\mathrm{valid}}}\frac{1}{n_r}\sum_{i=1}^{n_r}K_h(\mathbf q-\mathbf v_{r,i}),
+$$
+
+where
+
+$$
+K_h(\mathbf u)=\frac{1}{2\pi h^2}\exp\left(-\frac{\lVert\mathbf u\rVert^2}{2h^2}\right),
+$$
+
+and the displayed value is normalized as
+
+$$
+D_h^*(\mathbf q)=\frac{D_h(\mathbf q)}{\max_{\mathbf q}D_h(\mathbf q)}.
+$$
+
+Thus $D_h^*=1$ marks the highest generated-vertex concentration in the figure, not a probability of geological structure. Stable repeated vertices form focused peaks; variable vertices form broader regions. The bandwidth $h$ controls smoothing, and every run receives equal total weight even when vertex counts differ. The plot and mean line measure sensitivity to repeated generation and prompt specificity, not geological epistemic uncertainty.
 
 ### Refining Sections
 

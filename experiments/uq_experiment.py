@@ -13,6 +13,7 @@ import statistics
 import subprocess
 import sys
 import time
+from collections import Counter
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
@@ -30,6 +31,9 @@ DEFAULT_OLLAMA_HOST = "http://localhost:11434"
 RUN_COUNT = 10
 MAX_GEN_ITERATIONS = 5
 MAX_CHATS = 1
+BOUNDARY_TOLERANCE_KM = 1e-6
+MEAN_LINE_SAMPLES = 101
+KDE_BANDWIDTH_KM: float | None = None
 
 sys.path.insert(0, str(ROOT))
 
@@ -38,8 +42,13 @@ os.environ.setdefault("MPLBACKEND", "Agg")
 os.environ.setdefault("MPLCONFIGDIR", str(OUTPUT_DIR / ".matplotlib"))
 
 
-def configure_experiment(model: str, description: Path, output_dir: Path | None) -> None:
-    global MODEL, DESCRIPTION_PATH, OUTPUT_DIR, RUNS_DIR
+def configure_experiment(
+    model: str,
+    description: Path,
+    output_dir: Path | None,
+    kde_bandwidth_km: float | None,
+) -> None:
+    global MODEL, DESCRIPTION_PATH, OUTPUT_DIR, RUNS_DIR, KDE_BANDWIDTH_KM
     MODEL = model
     DESCRIPTION_PATH = description.resolve()
     model_slug = model.replace(":", "_").replace("/", "_")
@@ -49,6 +58,7 @@ def configure_experiment(model: str, description: Path, output_dir: Path | None)
         OUTPUT_DIR = output_dir if output_dir.is_absolute() else ROOT / output_dir
         OUTPUT_DIR = OUTPUT_DIR.resolve()
     RUNS_DIR = OUTPUT_DIR / "runs"
+    KDE_BANDWIDTH_KM = kde_bandwidth_km
     os.environ["MPLCONFIGDIR"] = str(OUTPUT_DIR / ".matplotlib")
 
 
@@ -137,12 +147,92 @@ def select_ollama_host() -> dict[str, Any]:
 
 def model_geometry(
     vertices: list[tuple[int, float, float]],
-    polygons: list[tuple[str, list[int]]],
-) -> tuple[list[list[float]], list[list[list[float]]]]:
-    coordinates = {vertex_id: [x, z] for vertex_id, x, z in vertices}
-    model_vertices = [coordinates[vertex_id] for vertex_id, _, _ in vertices]
-    model_polygons = [[coordinates[vertex_id] for vertex_id in vertex_ids] for _, vertex_ids in polygons]
-    return model_vertices, model_polygons
+) -> list[list[float]]:
+    return [[x, z] for _, x, z in vertices]
+
+
+def boundary_signature(vertices: list[list[float]]) -> tuple[tuple[float, float], ...]:
+    import numpy as np
+
+    values = np.asarray(vertices, dtype=float)
+    x_min = values[:, 0].min()
+    x_max = values[:, 0].max()
+    on_side = np.isclose(values[:, 0], x_min, atol=BOUNDARY_TOLERANCE_KM) | np.isclose(
+        values[:, 0], x_max, atol=BOUNDARY_TOLERANCE_KM
+    )
+    return tuple(sorted((round(float(x), 6), round(float(z), 6)) for x, z in values[on_side]))
+
+
+def boundary_check(
+    records: list[dict[str, Any]],
+) -> tuple[bool, tuple[tuple[float, float], ...], list[int]]:
+    signatures = [(int(record["run"]), boundary_signature(record["model_vertices"])) for record in records]
+    expected = Counter(signature for _, signature in signatures).most_common(1)[0][0]
+    inconsistent_runs = [run for run, signature in signatures if signature != expected]
+    return not inconsistent_runs, expected, inconsistent_runs
+
+
+def interior_path(vertices: list[list[float]]) -> Any:
+    import numpy as np
+
+    values = np.asarray(vertices, dtype=float)
+    x_min = values[:, 0].min()
+    x_max = values[:, 0].max()
+    on_side = np.isclose(values[:, 0], x_min, atol=BOUNDARY_TOLERANCE_KM) | np.isclose(
+        values[:, 0], x_max, atol=BOUNDARY_TOLERANCE_KM
+    )
+    path = values[~on_side]
+    return path[np.argsort(path[:, 1])[::-1]]
+
+
+def mean_interior_path(records: list[dict[str, Any]]) -> tuple[Any | None, str | None]:
+    import numpy as np
+
+    paths = [interior_path(record["model_vertices"]) for record in records]
+    if any(len(path) < 2 for path in paths):
+        return None, "at least one run has fewer than two interior vertices"
+    if any(np.any(np.diff(path[:, 1]) >= 0) for path in paths):
+        return None, "at least one run has non-unique or non-monotonic interior-vertex depths"
+
+    tops = [float(path[0, 1]) for path in paths]
+    bottoms = [float(path[-1, 1]) for path in paths]
+    if max(tops) - min(tops) > BOUNDARY_TOLERANCE_KM or max(bottoms) - min(bottoms) > BOUNDARY_TOLERANCE_KM:
+        return None, "interior paths do not share common top and bottom depths"
+
+    common_z = np.linspace(statistics.fmean(tops), statistics.fmean(bottoms), MEAN_LINE_SAMPLES)
+    interpolated_x = []
+    for path in paths:
+        interpolated_x.append(np.interp(common_z[::-1], path[::-1, 1], path[::-1, 0])[::-1])
+    return np.column_stack((np.mean(interpolated_x, axis=0), common_z)), None
+
+
+def relative_vertex_density(records: list[dict[str, Any]]) -> tuple[Any, Any, Any, float]:
+    import numpy as np
+
+    combined = np.vstack([np.asarray(record["model_vertices"], dtype=float) for record in records])
+    x_min, x_max = combined[:, 0].min(), combined[:, 0].max()
+    z_min, z_max = combined[:, 1].min(), combined[:, 1].max()
+    x_span = max(float(x_max - x_min), 1.0)
+    z_span = max(float(z_max - z_min), 1.0)
+    bandwidth = KDE_BANDWIDTH_KM or 0.02 * min(x_span, z_span)
+    if bandwidth <= 0:
+        raise ValueError("KDE bandwidth must be positive")
+
+    x = np.linspace(x_min, x_max, 501)
+    z = np.linspace(z_min, z_max, max(101, round(501 * z_span / x_span)))
+    grid_x, grid_z = np.meshgrid(x, z)
+    density = np.zeros_like(grid_x)
+    normalization = 2.0 * np.pi * bandwidth**2
+    for record in records:
+        vertices = np.asarray(record["model_vertices"], dtype=float)
+        run_density = np.zeros_like(grid_x)
+        for vertex_x, vertex_z in vertices:
+            squared_distance = (grid_x - vertex_x) ** 2 + (grid_z - vertex_z) ** 2
+            run_density += np.exp(-squared_distance / (2.0 * bandwidth**2)) / normalization
+        density += run_density / len(vertices)
+    density /= len(records)
+    relative = density / density.max()
+    return x, z, relative, bandwidth
 
 
 def generation_attempts(chats: list[list[dict[str, Any]]]) -> int:
@@ -215,7 +305,6 @@ def run_generation(run_number: int, description: str, instruction_prompt: str) -
             "polygon_count": None,
             "geosirr_valid": False,
             "model_vertices": None,
-            "model_polygons": None,
             "failure_reason": None,
         }
 
@@ -232,7 +321,7 @@ def run_generation(run_number: int, description: str, instruction_prompt: str) -
             topology_valid = False
             topology_errors = [f"{type(exc).__name__}: {exc}"]
         vertices, polygons = gs.io.parse_text(definition)
-        model_vertices, model_polygons = model_geometry(vertices, polygons)
+        model_vertices = model_geometry(vertices)
         geosirr_valid = bool(success and format_valid and topology_valid)
         record.update(
             {
@@ -244,7 +333,6 @@ def run_generation(run_number: int, description: str, instruction_prompt: str) -
                 "polygon_count": len(polygons),
                 "geosirr_valid": geosirr_valid,
                 "model_vertices": model_vertices,
-                "model_polygons": model_polygons,
             }
         )
         if not geosirr_valid:
@@ -270,7 +358,6 @@ def run_generation(run_number: int, description: str, instruction_prompt: str) -
             "polygon_count": None,
             "geosirr_valid": False,
             "model_vertices": None,
-            "model_polygons": None,
             "failure_reason": f"{type(exc).__name__}: {exc}",
         }
 
@@ -294,7 +381,6 @@ def load_and_revalidate_records() -> list[dict[str, Any]]:
                     "polygon_count": None,
                     "geosirr_valid": False,
                     "model_vertices": None,
-                    "model_polygons": None,
                     "failure_reason": "run record is missing",
                 }
             )
@@ -311,7 +397,7 @@ def load_and_revalidate_records() -> list[dict[str, Any]]:
                 topology_valid = False
                 topology_errors = [f"{type(exc).__name__}: {exc}"]
             vertices, polygons = io.parse_text(definition)
-            model_vertices, model_polygons = model_geometry(vertices, polygons)
+            model_vertices = model_geometry(vertices)
             geosirr_valid = bool(record.get("generation_success") and format_valid and topology_valid)
             record.update(
                 {
@@ -323,14 +409,14 @@ def load_and_revalidate_records() -> list[dict[str, Any]]:
                     "polygon_count": len(polygons),
                     "geosirr_valid": geosirr_valid,
                     "model_vertices": model_vertices,
-                    "model_polygons": model_polygons,
                     "failure_reason": (
                         None if geosirr_valid else "final output failed independent GeoSIRR validation"
                     ),
                 }
             )
         else:
-            record.update({"model_vertices": None, "model_polygons": None})
+            record.update({"model_vertices": None})
+        record.pop("model_polygons", None)
         write_json(record_path, record)
         records.append(record)
     return records
@@ -352,6 +438,7 @@ def experiment_identity() -> tuple[str, str]:
 def write_analysis(records: list[dict[str, Any]]) -> dict[str, Any]:
     import matplotlib.pyplot as plt
     import numpy as np
+    from matplotlib.colors import PowerNorm
 
     valid = [record for record in records if record.get("geosirr_valid")]
     model, backend = experiment_identity()
@@ -371,6 +458,13 @@ def write_analysis(records: list[dict[str, Any]]) -> dict[str, Any]:
         "generation_time_max_seconds": max(times),
     }
     if valid:
+        boundaries_consistent, expected_boundary, inconsistent_runs = boundary_check(valid)
+        mean_path, mean_error = (
+            mean_interior_path(valid)
+            if boundaries_consistent
+            else (None, f"boundary coordinates differ in runs {inconsistent_runs}")
+        )
+        density_x, density_z, density, bandwidth = relative_vertex_density(valid)
         statistics_result.update(
             {
                 "vertex_count_mean": statistics.fmean(vertex_counts),
@@ -379,6 +473,12 @@ def write_analysis(records: list[dict[str, Any]]) -> dict[str, Any]:
                 "polygon_count_mean": statistics.fmean(polygon_counts),
                 "polygon_count_min": min(polygon_counts),
                 "polygon_count_max": max(polygon_counts),
+                "boundary_node_count": len(expected_boundary),
+                "expected_boundary_coordinates_km": [list(point) for point in expected_boundary],
+                "boundaries_consistent": boundaries_consistent,
+                "inconsistent_boundary_runs": inconsistent_runs,
+                "mean_interior_path_available": mean_path is not None,
+                "kde_bandwidth_km": bandwidth,
             }
         )
 
@@ -419,17 +519,81 @@ def write_analysis(records: list[dict[str, Any]]) -> dict[str, Any]:
         "",
         "## Geometry overlay",
         "",
-        "The figure overlays every polygon boundary and every declared vertex from each final valid generation. Colors identify runs. No correspondence between vertices in different runs is assumed, so the overlay is descriptive and does not define a scalar geometric-uncertainty metric.",
+        "The figure shows every declared vertex from each final valid generation. Colors identify runs; all points use the same size and transparency.",
     ]
     if valid:
+        boundary_status = (
+            f"passed ({len(expected_boundary)} identical side-boundary nodes in every run)"
+            if boundaries_consistent
+            else f"failed (different side-boundary coordinates in runs {inconsistent_runs})"
+        )
         summary_lines.extend(
             [
                 "",
                 f"- Vertices per valid model: mean {statistics.fmean(vertex_counts):.1f}, range {range_text(vertex_counts, 0)}",
                 f"- Polygons per valid model: mean {statistics.fmean(polygon_counts):.1f}, range {range_text(polygon_counts, 0)}",
+                f"- Boundary consistency check: {boundary_status}",
+                f"- Gaussian density bandwidth: $h={bandwidth:.3f}$ km",
+                "",
+                "### Boundary check and mean line",
+                "",
+                "For each run, side-boundary nodes are identified geometrically as vertices at the minimum or maximum horizontal coordinate. The expected boundary is the modal coordinate set across valid runs. A mean line is calculated only when every run has that same set.",
+                "",
+                f"After removing the side-boundary nodes, each remaining path is ordered by depth and linearly resampled at {MEAN_LINE_SAMPLES} common depths. At depth $z_k$, the mean horizontal position is",
+                "",
+                "$$",
+                "\\bar{x}(z_k)=\\frac{1}{N_{\\mathrm{valid}}}\\sum_{r=1}^{N_{\\mathrm{valid}}}x_r(z_k).",
+                "$$",
+                "",
+                "This interpolation avoids assuming that generated DSL vertex IDs or vertex counts correspond between runs.",
+                "",
+                "### Relative vertex-density background",
+                "",
+                "For run $r$ containing $n_r$ vertices, the Gaussian kernel estimate is",
+                "",
+                "$$",
+                "D_h(\\mathbf q)=\\frac{1}{N_{\\mathrm{valid}}}\\sum_{r=1}^{N_{\\mathrm{valid}}}\\frac{1}{n_r}\\sum_{i=1}^{n_r}K_h(\\mathbf q-\\mathbf v_{r,i}),",
+                "$$",
+                "",
+                "where",
+                "",
+                "$$",
+                "K_h(\\mathbf u)=\\frac{1}{2\\pi h^2}\\exp\\left(-\\frac{\\lVert\\mathbf u\\rVert^2}{2h^2}\\right),",
+                "$$",
+                "",
+                "and the displayed relative density is",
+                "",
+                "$$",
+                "D_h^*(\\mathbf q)=\\frac{D_h(\\mathbf q)}{\\max_{\\mathbf q}D_h(\\mathbf q)}.",
+                "$$",
+                "",
+                "Each run therefore has equal total weight even when its vertex count differs. Repeated stable vertices produce concentrated peaks, whereas variable vertices produce broader, lower-density regions. The bandwidth controls smoothing. This is a visualization of generated-vertex concentration, not a probability of geological structure in the subsurface.",
             ]
         )
-        fig, ax = plt.subplots(figsize=(11, 5.5))
+        if mean_path is None:
+            summary_lines.extend(["", f"The mean line was omitted: {mean_error}."])
+            (OUTPUT_DIR / "mean_interior_path.csv").unlink(missing_ok=True)
+        else:
+            with (OUTPUT_DIR / "mean_interior_path.csv").open(
+                "w", newline="", encoding="utf-8"
+            ) as handle:
+                writer = csv.writer(handle)
+                writer.writerow(["sample", "mean_x_km", "z_km"])
+                for index, (mean_x, z_value) in enumerate(mean_path):
+                    writer.writerow([index, mean_x, z_value])
+
+        fig, ax = plt.subplots(figsize=(11, 6.2))
+        heatmap = ax.imshow(
+            density,
+            origin="lower",
+            extent=(density_x[0], density_x[-1], density_z[0], density_z[-1]),
+            cmap="YlOrRd",
+            norm=PowerNorm(gamma=0.5, vmin=0.0, vmax=1.0),
+            interpolation="bilinear",
+            aspect="auto",
+            alpha=0.72,
+            zorder=0,
+        )
         colors = plt.colormaps["tab10"]
         all_vertices = []
         for record in valid:
@@ -437,19 +601,23 @@ def write_analysis(records: list[dict[str, Any]]) -> dict[str, Any]:
             color = colors((run_number - 1) % 10)
             vertices = np.asarray(record["model_vertices"], dtype=float)
             all_vertices.append(vertices)
-            for polygon in record["model_polygons"]:
-                points = np.asarray(polygon + [polygon[0]], dtype=float)
-                ax.plot(points[:, 0], points[:, 1], color=color, linewidth=0.8, alpha=0.22)
             ax.scatter(
                 vertices[:, 0],
                 vertices[:, 1],
-                facecolors="none",
-                edgecolors=[color],
-                s=14 + 3 * (RUN_COUNT - run_number),
-                linewidths=0.9,
-                alpha=0.9,
+                color=color,
+                s=20,
+                alpha=0.62,
                 label=f"Run {record['run']}",
                 zorder=3,
+            )
+        if mean_path is not None:
+            ax.plot(
+                mean_path[:, 0],
+                mean_path[:, 1],
+                color="black",
+                linewidth=2.2,
+                label="Mean interior path",
+                zorder=4,
             )
         annotation_lines = [
             f"Attempted: {RUN_COUNT}",
@@ -458,6 +626,8 @@ def write_analysis(records: list[dict[str, Any]]) -> dict[str, Any]:
             f"Time: mean {statistics.fmean(times):.1f} s, range {range_text(times, 1)} s",
             f"Vertices/model: mean {statistics.fmean(vertex_counts):.1f}, range {range_text(vertex_counts, 0)}",
             f"Polygons/model: mean {statistics.fmean(polygon_counts):.1f}, range {range_text(polygon_counts, 0)}",
+            f"Boundary check: {'passed' if boundaries_consistent else 'failed'}",
+            f"Density bandwidth: {bandwidth:.3f} km",
         ]
         ax.text(
             0.015,
@@ -476,21 +646,30 @@ def write_analysis(records: list[dict[str, Any]]) -> dict[str, Any]:
         ax.set_ylim(combined[:, 1].min() - 0.04 * z_span, combined[:, 1].max() + 0.04 * z_span)
         ax.set_xlabel("Horizontal distance x (km)")
         ax.set_ylabel("Elevation z (km)")
-        ax.set_title("Final GeoSIRR geometry realizations and all model vertices")
+        ax.set_title("Generated model vertices, relative density, and mean interior path")
         ax.set_aspect("equal", adjustable="box")
         ax.grid(color="0.75", linestyle="--", linewidth=0.5)
-        ax.legend(
-            loc="upper right",
-            ncols=2,
+        legend = ax.legend(
+            loc="upper center",
+            bbox_to_anchor=(0.5, -0.20),
+            ncols=6,
             fontsize=7,
             title=f"Model: {model}\nBackend: {backend}",
             title_fontsize=7.5,
         )
-        fig.tight_layout()
-        fig.savefig(OUTPUT_DIR / "uq_summary.png", dpi=300, bbox_inches="tight")
+        colorbar = fig.colorbar(heatmap, ax=ax, pad=0.02)
+        colorbar.set_label(r"Relative generated-vertex density $D_h^*$")
+        fig.tight_layout(rect=(0, 0.12, 1, 1))
+        fig.savefig(
+            OUTPUT_DIR / "uq_summary.png",
+            dpi=300,
+            bbox_inches="tight",
+            bbox_extra_artists=(legend,),
+        )
         plt.close(fig)
     else:
         summary_lines.extend(["", "The geometry overlay was not created because no final generation was valid."])
+        (OUTPUT_DIR / "mean_interior_path.csv").unlink(missing_ok=True)
 
     (OUTPUT_DIR / "vertex_uncertainty.csv").unlink(missing_ok=True)
     (OUTPUT_DIR / "summary.md").write_text("\n".join(summary_lines) + "\n", encoding="utf-8")
@@ -532,8 +711,23 @@ def run_self_tests() -> None:
         assert io.validate_cross_section_format(fixture)[0]
         assert io.validate_cross_section_topology(fixture)[0]
         vertices, polygons = io.parse_text(fixture)
-        geometries.append(model_geometry(vertices, polygons))
+        geometries.append(model_geometry(vertices))
     assert geometries[0] == geometries[1], "vertex IDs must not affect plotted geometry"
+    boundary_records = [
+        {"run": 1, "model_vertices": geometries[0]},
+        {"run": 2, "model_vertices": geometries[1]},
+    ]
+    consistent, expected, inconsistent_runs = boundary_check(boundary_records)
+    assert consistent and len(expected) == 4 and not inconsistent_runs
+    mean_path, mean_error = mean_interior_path(boundary_records)
+    assert mean_path is not None and mean_error is None
+
+    changed_boundary = [vertex.copy() for vertex in geometries[1]]
+    changed_boundary[-3][1] = -4.9
+    inconsistent, _, inconsistent_runs = boundary_check(
+        [boundary_records[0], {"run": 2, "model_vertices": changed_boundary}]
+    )
+    assert not inconsistent and inconsistent_runs
 
     previous_output_dir = OUTPUT_DIR
     try:
@@ -546,10 +740,9 @@ def run_self_tests() -> None:
                     "geosirr_valid": True,
                     "format_valid": True,
                     "topology_valid": True,
-                    "vertex_count": len(geometries[0][0]),
-                    "polygon_count": len(geometries[0][1]),
-                    "model_vertices": geometries[0][0],
-                    "model_polygons": geometries[0][1],
+                    "vertex_count": len(geometries[0]),
+                    "polygon_count": 2,
+                    "model_vertices": geometries[0],
                     "attempts": 1,
                     "generation_time_seconds": 1.0,
                 }
@@ -564,7 +757,6 @@ def run_self_tests() -> None:
                     "vertex_count": None,
                     "polygon_count": None,
                     "model_vertices": None,
-                    "model_polygons": None,
                     "attempts": 0,
                     "generation_time_seconds": 0.0,
                 }
@@ -574,7 +766,10 @@ def run_self_tests() -> None:
             result = write_analysis(records)
             assert result["valid"] == 1
             assert result["R_gen"] == 0.1
+            assert result["boundaries_consistent"]
+            assert result["mean_interior_path_available"]
             assert (OUTPUT_DIR / "uq_summary.png").is_file()
+            assert (OUTPUT_DIR / "mean_interior_path.csv").is_file()
             assert not (OUTPUT_DIR / "vertex_uncertainty.csv").exists()
     finally:
         OUTPUT_DIR = previous_output_dir
@@ -679,6 +874,11 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         help="output directory; defaults to output/uq_<description>_<model>",
     )
+    parser.add_argument(
+        "--kde-bandwidth-km",
+        type=float,
+        help="Gaussian vertex-density bandwidth in km; defaults to 2%% of the smaller section span",
+    )
     group = parser.add_mutually_exclusive_group()
     group.add_argument("--self-test", action="store_true", help="run synthetic checks without Ollama")
     group.add_argument("--analyze-only", action="store_true", help="rebuild analysis from saved final outputs")
@@ -687,7 +887,7 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
-    configure_experiment(args.model, args.description, args.output_dir)
+    configure_experiment(args.model, args.description, args.output_dir, args.kde_bandwidth_km)
     try:
         if args.self_test:
             run_self_tests()
