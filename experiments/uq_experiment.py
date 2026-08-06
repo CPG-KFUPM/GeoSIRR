@@ -667,16 +667,16 @@ def write_analysis(records: list[dict[str, Any]]) -> dict[str, Any]:
             f"Contacts/model: mean {statistics.fmean(contact_counts):.1f}, range {range_text(contact_counts, 0)}",
             f"Contact scale $\\sigma$: {CONTACT_DENSITY_SIGMA_KM:.3f} km",
         ]
-        ax.text(
-            0.015,
-            0.025,
-            "\n".join(annotation_lines),
-            transform=ax.transAxes,
-            ha="left",
-            va="bottom",
-            fontsize=8.5,
-            bbox={"facecolor": "white", "edgecolor": "0.4", "alpha": 0.9},
-        )
+        # ax.text(
+        #     0.015,
+        #     0.025,
+        #     "\n".join(annotation_lines),
+        #     transform=ax.transAxes,
+        #     ha="left",
+        #     va="bottom",
+        #     fontsize=8.5,
+        #     bbox={"facecolor": "white", "edgecolor": "0.4", "alpha": 0.9},
+        # )
         combined = np.vstack(all_vertices)
         ax.set_xlim(combined[:, 0].min(), combined[:, 0].max())
         ax.set_ylim(combined[:, 1].min(), combined[:, 1].max())
