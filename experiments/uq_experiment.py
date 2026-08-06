@@ -216,6 +216,16 @@ def mean_interior_path(records: list[dict[str, Any]]) -> tuple[Any | None, str |
     return np.column_stack((np.mean(interpolated_x, axis=0), common_z)), None
 
 
+def mean_interior_nodes(records: list[dict[str, Any]], mean_path: Any) -> Any:
+    import numpy as np
+
+    depths = np.unique(
+        np.concatenate([interior_path(record["model_vertices"])[:, 1] for record in records])
+    )[::-1]
+    mean_x = np.interp(depths[::-1], mean_path[::-1, 1], mean_path[::-1, 0])[::-1]
+    return np.column_stack((mean_x, depths))
+
+
 def contact_density_grid(records: list[dict[str, Any]]) -> tuple[Any, Any, Any]:
     import numpy as np
 
@@ -633,9 +643,18 @@ def write_analysis(records: list[dict[str, Any]]) -> dict[str, Any]:
                 mean_path[:, 0],
                 mean_path[:, 1],
                 color="black",
-                linewidth=2.2,
+                linestyle="--",
+                linewidth=1.4,
                 label="Mean interior path",
                 zorder=4,
+            )
+            mean_nodes = mean_interior_nodes(valid, mean_path)
+            ax.scatter(
+                mean_nodes[:, 0],
+                mean_nodes[:, 1],
+                color="black",
+                s=14,
+                zorder=5,
             )
         annotation_lines = [
             f"Attempted: {RUN_COUNT}",
