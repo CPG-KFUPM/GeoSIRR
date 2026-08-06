@@ -66,6 +66,3 @@ codex_tmp/
 
 #mamba
 mamba*
-
-#experiments are ignored temporarily
-experiments/
