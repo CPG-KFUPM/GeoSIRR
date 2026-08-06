@@ -300,8 +300,6 @@ python experiments/uq_experiment.py \
 
 Use `--output-dir` when reading or writing a non-default directory. Existing per-run records in that directory are retained and skipped, allowing an interrupted experiment to resume.
 
-Use `--kde-bandwidth-km` to override the Gaussian smoothing bandwidth used by the vertex-density background. By default, the bandwidth is 2% of the smaller section span.
-
 The reported generation success rate is
 
 $$
@@ -320,25 +318,15 @@ $$
 
 This depth-based interpolation permits different generated vertex counts without assuming that their IDs correspond.
 
-The background shows the relative concentration of all generated vertices. For run $r$ with $n_r$ vertices, the Gaussian kernel estimate is
+The background is a generic internal-contact density map. For realization $r$, $E_r$ is the union of polygon edges shared by two polygons; exterior section-boundary edges are excluded. At grid location $\mathbf q$, $d(\mathbf q,E_r)$ is the shortest distance to the internal-contact geometry in that realization. The displayed value is
 
 $$
-D_h(\mathbf q)=\frac{1}{N_{\mathrm{valid}}}\sum_{r=1}^{N_{\mathrm{valid}}}\frac{1}{n_r}\sum_{i=1}^{n_r}K_h(\mathbf q-\mathbf v_{r,i}),
+D_\sigma(\mathbf q)=\frac{1}{N_{\mathrm{valid}}}\sum_{r=1}^{N_{\mathrm{valid}}}\exp\left(-\frac{d(\mathbf q,E_r)^2}{2\sigma^2}\right),\qquad \sigma=0.100\ \mathrm{km}.
 $$
 
-where
+Each realization contributes one smooth band around every internal contact: it is $1$ on the contact and decays with distance at a scale of $\sigma$. Averaging these bands yields a continuous map for all structural contacts, including a fault that separates polygons with the same base-unit label. A stable contact therefore forms a narrow, high-density band. A contact whose position varies between runs forms a broader, lower-density band; where alternative contacts overlap, their contributions combine.
 
-$$
-K_h(\mathbf u)=\frac{1}{2\pi h^2}\exp\left(-\frac{\lVert\mathbf u\rVert^2}{2h^2}\right),
-$$
-
-and the displayed value is normalized as
-
-$$
-D_h^*(\mathbf q)=\frac{D_h(\mathbf q)}{\max_{\mathbf q}D_h(\mathbf q)}.
-$$
-
-Thus $D_h^*=1$ marks the highest generated-vertex concentration in the figure, not a probability of geological structure. Stable repeated vertices form focused peaks; variable vertices form broader regions. The bandwidth $h$ controls smoothing, and every run receives equal total weight even when vertex counts differ. The plot and mean line measure sensitivity to repeated generation and prompt specificity, not geological epistemic uncertainty.
+This is generated-contact concentration, not a probability that a geological contact occurs at a real subsurface location. The plot and mean line measure sensitivity to repeated generation and prompt specificity, not geological epistemic uncertainty.
 
 ### Refining Sections
 

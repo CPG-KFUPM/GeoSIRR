@@ -33,7 +33,7 @@ MAX_GEN_ITERATIONS = 5
 MAX_CHATS = 1
 BOUNDARY_TOLERANCE_KM = 1e-6
 MEAN_LINE_SAMPLES = 101
-KDE_BANDWIDTH_KM: float | None = None
+CONTACT_DENSITY_SIGMA_KM = 0.10
 
 sys.path.insert(0, str(ROOT))
 
@@ -46,9 +46,8 @@ def configure_experiment(
     model: str,
     description: Path,
     output_dir: Path | None,
-    kde_bandwidth_km: float | None,
 ) -> None:
-    global MODEL, DESCRIPTION_PATH, OUTPUT_DIR, RUNS_DIR, KDE_BANDWIDTH_KM
+    global MODEL, DESCRIPTION_PATH, OUTPUT_DIR, RUNS_DIR
     MODEL = model
     DESCRIPTION_PATH = description.resolve()
     model_slug = model.replace(":", "_").replace("/", "_")
@@ -58,7 +57,6 @@ def configure_experiment(
         OUTPUT_DIR = output_dir if output_dir.is_absolute() else ROOT / output_dir
         OUTPUT_DIR = OUTPUT_DIR.resolve()
     RUNS_DIR = OUTPUT_DIR / "runs"
-    KDE_BANDWIDTH_KM = kde_bandwidth_km
     os.environ["MPLCONFIGDIR"] = str(OUTPUT_DIR / ".matplotlib")
 
 
@@ -147,8 +145,20 @@ def select_ollama_host() -> dict[str, Any]:
 
 def model_geometry(
     vertices: list[tuple[int, float, float]],
-) -> list[list[float]]:
-    return [[x, z] for _, x, z in vertices]
+    polygons: list[tuple[str, list[int]]],
+) -> tuple[list[list[float]], list[list[list[float]]]]:
+    coordinates = {vertex_id: [x, z] for vertex_id, x, z in vertices}
+    edge_counts: dict[tuple[int, int], int] = {}
+    for _, vertex_ids in polygons:
+        for start, end in zip(vertex_ids, vertex_ids[1:] + vertex_ids[:1]):
+            edge = tuple(sorted((start, end)))
+            edge_counts[edge] = edge_counts.get(edge, 0) + 1
+    contacts = [
+        [coordinates[start], coordinates[end]]
+        for (start, end), count in edge_counts.items()
+        if count == 2
+    ]
+    return [[x, z] for _, x, z in vertices], contacts
 
 
 def boundary_signature(vertices: list[list[float]]) -> tuple[tuple[float, float], ...]:
@@ -206,7 +216,7 @@ def mean_interior_path(records: list[dict[str, Any]]) -> tuple[Any | None, str |
     return np.column_stack((np.mean(interpolated_x, axis=0), common_z)), None
 
 
-def relative_vertex_density(records: list[dict[str, Any]]) -> tuple[Any, Any, Any, float]:
+def contact_density_grid(records: list[dict[str, Any]]) -> tuple[Any, Any, Any]:
     import numpy as np
 
     combined = np.vstack([np.asarray(record["model_vertices"], dtype=float) for record in records])
@@ -214,25 +224,33 @@ def relative_vertex_density(records: list[dict[str, Any]]) -> tuple[Any, Any, An
     z_min, z_max = combined[:, 1].min(), combined[:, 1].max()
     x_span = max(float(x_max - x_min), 1.0)
     z_span = max(float(z_max - z_min), 1.0)
-    bandwidth = KDE_BANDWIDTH_KM or 0.02 * min(x_span, z_span)
-    if bandwidth <= 0:
-        raise ValueError("KDE bandwidth must be positive")
-
-    x = np.linspace(x_min, x_max, 501)
-    z = np.linspace(z_min, z_max, max(101, round(501 * z_span / x_span)))
+    nx = 1000
+    nz = max(100, round(nx * z_span / x_span))
+    x_edges = np.linspace(x_min, x_max, nx + 1)
+    z_edges = np.linspace(z_min, z_max, nz + 1)
+    x = (x_edges[:-1] + x_edges[1:]) / 2.0
+    z = (z_edges[:-1] + z_edges[1:]) / 2.0
     grid_x, grid_z = np.meshgrid(x, z)
     density = np.zeros_like(grid_x)
-    normalization = 2.0 * np.pi * bandwidth**2
     for record in records:
-        vertices = np.asarray(record["model_vertices"], dtype=float)
-        run_density = np.zeros_like(grid_x)
-        for vertex_x, vertex_z in vertices:
-            squared_distance = (grid_x - vertex_x) ** 2 + (grid_z - vertex_z) ** 2
-            run_density += np.exp(-squared_distance / (2.0 * bandwidth**2)) / normalization
-        density += run_density / len(vertices)
-    density /= len(records)
-    relative = density / density.max()
-    return x, z, relative, bandwidth
+        minimum_distance = np.full_like(grid_x, np.inf)
+        for start, end in record["internal_contacts"]:
+            start_x, start_z = start
+            end_x, end_z = end
+            dx = end_x - start_x
+            dz = end_z - start_z
+            length_squared = dx * dx + dz * dz
+            if length_squared == 0:
+                continue
+            projection = ((grid_x - start_x) * dx + (grid_z - start_z) * dz) / length_squared
+            projection = np.clip(projection, 0.0, 1.0)
+            nearest_x = start_x + projection * dx
+            nearest_z = start_z + projection * dz
+            minimum_distance = np.minimum(
+                minimum_distance, np.hypot(grid_x - nearest_x, grid_z - nearest_z)
+            )
+        density += np.exp(-minimum_distance**2 / (2.0 * CONTACT_DENSITY_SIGMA_KM**2))
+    return x_edges, z_edges, density / len(records)
 
 
 def generation_attempts(chats: list[list[dict[str, Any]]]) -> int:
@@ -305,6 +323,7 @@ def run_generation(run_number: int, description: str, instruction_prompt: str) -
             "polygon_count": None,
             "geosirr_valid": False,
             "model_vertices": None,
+            "internal_contacts": None,
             "failure_reason": None,
         }
 
@@ -321,7 +340,7 @@ def run_generation(run_number: int, description: str, instruction_prompt: str) -
             topology_valid = False
             topology_errors = [f"{type(exc).__name__}: {exc}"]
         vertices, polygons = gs.io.parse_text(definition)
-        model_vertices = model_geometry(vertices)
+        model_vertices, internal_contacts = model_geometry(vertices, polygons)
         geosirr_valid = bool(success and format_valid and topology_valid)
         record.update(
             {
@@ -333,6 +352,7 @@ def run_generation(run_number: int, description: str, instruction_prompt: str) -
                 "polygon_count": len(polygons),
                 "geosirr_valid": geosirr_valid,
                 "model_vertices": model_vertices,
+                "internal_contacts": internal_contacts,
             }
         )
         if not geosirr_valid:
@@ -358,6 +378,7 @@ def run_generation(run_number: int, description: str, instruction_prompt: str) -
             "polygon_count": None,
             "geosirr_valid": False,
             "model_vertices": None,
+            "internal_contacts": None,
             "failure_reason": f"{type(exc).__name__}: {exc}",
         }
 
@@ -381,6 +402,7 @@ def load_and_revalidate_records() -> list[dict[str, Any]]:
                     "polygon_count": None,
                     "geosirr_valid": False,
                     "model_vertices": None,
+                    "internal_contacts": None,
                     "failure_reason": "run record is missing",
                 }
             )
@@ -397,7 +419,7 @@ def load_and_revalidate_records() -> list[dict[str, Any]]:
                 topology_valid = False
                 topology_errors = [f"{type(exc).__name__}: {exc}"]
             vertices, polygons = io.parse_text(definition)
-            model_vertices = model_geometry(vertices)
+            model_vertices, internal_contacts = model_geometry(vertices, polygons)
             geosirr_valid = bool(record.get("generation_success") and format_valid and topology_valid)
             record.update(
                 {
@@ -409,14 +431,16 @@ def load_and_revalidate_records() -> list[dict[str, Any]]:
                     "polygon_count": len(polygons),
                     "geosirr_valid": geosirr_valid,
                     "model_vertices": model_vertices,
+                    "internal_contacts": internal_contacts,
                     "failure_reason": (
                         None if geosirr_valid else "final output failed independent GeoSIRR validation"
                     ),
                 }
             )
         else:
-            record.update({"model_vertices": None})
+            record.update({"model_vertices": None, "internal_contacts": None})
         record.pop("model_polygons", None)
+        record.pop("model_regions", None)
         write_json(record_path, record)
         records.append(record)
     return records
@@ -438,7 +462,6 @@ def experiment_identity() -> tuple[str, str]:
 def write_analysis(records: list[dict[str, Any]]) -> dict[str, Any]:
     import matplotlib.pyplot as plt
     import numpy as np
-    from matplotlib.colors import PowerNorm
 
     valid = [record for record in records if record.get("geosirr_valid")]
     model, backend = experiment_identity()
@@ -464,7 +487,8 @@ def write_analysis(records: list[dict[str, Any]]) -> dict[str, Any]:
             if boundaries_consistent
             else (None, f"boundary coordinates differ in runs {inconsistent_runs}")
         )
-        density_x, density_z, density, bandwidth = relative_vertex_density(valid)
+        contact_x_edges, contact_z_edges, contact_density = contact_density_grid(valid)
+        contact_counts = [len(record["internal_contacts"]) for record in valid]
         statistics_result.update(
             {
                 "vertex_count_mean": statistics.fmean(vertex_counts),
@@ -478,7 +502,11 @@ def write_analysis(records: list[dict[str, Any]]) -> dict[str, Any]:
                 "boundaries_consistent": boundaries_consistent,
                 "inconsistent_boundary_runs": inconsistent_runs,
                 "mean_interior_path_available": mean_path is not None,
-                "kde_bandwidth_km": bandwidth,
+                "internal_contact_count_mean": statistics.fmean(contact_counts),
+                "internal_contact_count_min": min(contact_counts),
+                "internal_contact_count_max": max(contact_counts),
+                "contact_density_sigma_km": CONTACT_DENSITY_SIGMA_KM,
+                "maximum_internal_contact_density": float(contact_density.max()),
             }
         )
 
@@ -533,7 +561,8 @@ def write_analysis(records: list[dict[str, Any]]) -> dict[str, Any]:
                 f"- Vertices per valid model: mean {statistics.fmean(vertex_counts):.1f}, range {range_text(vertex_counts, 0)}",
                 f"- Polygons per valid model: mean {statistics.fmean(polygon_counts):.1f}, range {range_text(polygon_counts, 0)}",
                 f"- Boundary consistency check: {boundary_status}",
-                f"- Gaussian density bandwidth: $h={bandwidth:.3f}$ km",
+                f"- Internal contacts per valid model: mean {statistics.fmean(contact_counts):.1f}, range {range_text(contact_counts, 0)}",
+                f"- Internal-contact density scale: $\\sigma={CONTACT_DENSITY_SIGMA_KM:.3f}$ km",
                 "",
                 "### Boundary check and mean line",
                 "",
@@ -547,27 +576,15 @@ def write_analysis(records: list[dict[str, Any]]) -> dict[str, Any]:
                 "",
                 "This interpolation avoids assuming that generated DSL vertex IDs or vertex counts correspond between runs.",
                 "",
-                "### Relative vertex-density background",
+                "### Internal-contact density",
                 "",
-                "For run $r$ containing $n_r$ vertices, the Gaussian kernel estimate is",
-                "",
-                "$$",
-                "D_h(\\mathbf q)=\\frac{1}{N_{\\mathrm{valid}}}\\sum_{r=1}^{N_{\\mathrm{valid}}}\\frac{1}{n_r}\\sum_{i=1}^{n_r}K_h(\\mathbf q-\\mathbf v_{r,i}),",
-                "$$",
-                "",
-                "where",
+                "For realization $r$, $E_r$ is the union of polygon edges shared by two polygons; exterior section-boundary edges are excluded. At grid location $\\mathbf q$, $d(\\mathbf q,E_r)$ is the shortest distance to that internal-contact geometry. The displayed density is",
                 "",
                 "$$",
-                "K_h(\\mathbf u)=\\frac{1}{2\\pi h^2}\\exp\\left(-\\frac{\\lVert\\mathbf u\\rVert^2}{2h^2}\\right),",
+                "D_{\\sigma}(\\mathbf q)=\\frac{1}{N_{\\mathrm{valid}}}\\sum_{r=1}^{N_{\\mathrm{valid}}}\\exp\\left(-\\frac{d(\\mathbf q,E_r)^2}{2\\sigma^2}\\right).",
                 "$$",
                 "",
-                "and the displayed relative density is",
-                "",
-                "$$",
-                "D_h^*(\\mathbf q)=\\frac{D_h(\\mathbf q)}{\\max_{\\mathbf q}D_h(\\mathbf q)}.",
-                "$$",
-                "",
-                "Each run therefore has equal total weight even when its vertex count differs. Repeated stable vertices produce concentrated peaks, whereas variable vertices produce broader, lower-density regions. The bandwidth controls smoothing. This is a visualization of generated-vertex concentration, not a probability of geological structure in the subsurface.",
+                f"Here $\\sigma={CONTACT_DENSITY_SIGMA_KM:.3f}$ km. Stable contacts form narrow high-density bands; variable contacts form broader, lower-density bands. The field is generated-contact concentration, not a probability of geological structure in the subsurface.",
             ]
         )
         if mean_path is None:
@@ -584,11 +601,12 @@ def write_analysis(records: list[dict[str, Any]]) -> dict[str, Any]:
 
         fig, ax = plt.subplots(figsize=(11, 6.2))
         heatmap = ax.imshow(
-            density,
+            contact_density,
             origin="lower",
-            extent=(density_x[0], density_x[-1], density_z[0], density_z[-1]),
+            extent=(contact_x_edges[0], contact_x_edges[-1], contact_z_edges[0], contact_z_edges[-1]),
             cmap="YlOrRd",
-            norm=PowerNorm(gamma=0.5, vmin=0.0, vmax=1.0),
+            vmin=0.0,
+            vmax=1.0,
             interpolation="bilinear",
             aspect="auto",
             alpha=0.72,
@@ -627,7 +645,8 @@ def write_analysis(records: list[dict[str, Any]]) -> dict[str, Any]:
             f"Vertices/model: mean {statistics.fmean(vertex_counts):.1f}, range {range_text(vertex_counts, 0)}",
             f"Polygons/model: mean {statistics.fmean(polygon_counts):.1f}, range {range_text(polygon_counts, 0)}",
             f"Boundary check: {'passed' if boundaries_consistent else 'failed'}",
-            f"Density bandwidth: {bandwidth:.3f} km",
+            f"Contacts/model: mean {statistics.fmean(contact_counts):.1f}, range {range_text(contact_counts, 0)}",
+            f"Contact scale $\\sigma$: {CONTACT_DENSITY_SIGMA_KM:.3f} km",
         ]
         ax.text(
             0.015,
@@ -640,13 +659,11 @@ def write_analysis(records: list[dict[str, Any]]) -> dict[str, Any]:
             bbox={"facecolor": "white", "edgecolor": "0.4", "alpha": 0.9},
         )
         combined = np.vstack(all_vertices)
-        x_span = max(float(np.ptp(combined[:, 0])), 1.0)
-        z_span = max(float(np.ptp(combined[:, 1])), 1.0)
-        ax.set_xlim(combined[:, 0].min() - 0.02 * x_span, combined[:, 0].max() + 0.02 * x_span)
-        ax.set_ylim(combined[:, 1].min() - 0.04 * z_span, combined[:, 1].max() + 0.04 * z_span)
+        ax.set_xlim(combined[:, 0].min(), combined[:, 0].max())
+        ax.set_ylim(combined[:, 1].min(), combined[:, 1].max())
         ax.set_xlabel("Horizontal distance x (km)")
         ax.set_ylabel("Elevation z (km)")
-        ax.set_title("Generated model vertices, relative density, and mean interior path")
+        ax.set_title("Generated model vertices, internal-contact density, and mean interior path")
         ax.set_aspect("equal", adjustable="box")
         ax.grid(color="0.75", linestyle="--", linewidth=0.5)
         legend = ax.legend(
@@ -658,8 +675,14 @@ def write_analysis(records: list[dict[str, Any]]) -> dict[str, Any]:
             title_fontsize=7.5,
         )
         colorbar = fig.colorbar(heatmap, ax=ax, pad=0.02)
-        colorbar.set_label(r"Relative generated-vertex density $D_h^*$")
+        colorbar.set_label(r"Internal-contact density $D_\sigma$")
         fig.tight_layout(rect=(0, 0.12, 1, 1))
+        fig.canvas.draw()
+        axes_position = ax.get_position()
+        colorbar_position = colorbar.ax.get_position()
+        colorbar.ax.set_position(
+            [colorbar_position.x0, axes_position.y0, colorbar_position.width, axes_position.height]
+        )
         fig.savefig(
             OUTPUT_DIR / "uq_summary.png",
             dpi=300,
@@ -711,18 +734,37 @@ def run_self_tests() -> None:
         assert io.validate_cross_section_format(fixture)[0]
         assert io.validate_cross_section_topology(fixture)[0]
         vertices, polygons = io.parse_text(fixture)
-        geometries.append(model_geometry(vertices))
+        geometries.append(model_geometry(vertices, polygons))
     assert geometries[0] == geometries[1], "vertex IDs must not affect plotted geometry"
     boundary_records = [
-        {"run": 1, "model_vertices": geometries[0]},
-        {"run": 2, "model_vertices": geometries[1]},
+        {"run": 1, "model_vertices": geometries[0][0]},
+        {"run": 2, "model_vertices": geometries[1][0]},
     ]
     consistent, expected, inconsistent_runs = boundary_check(boundary_records)
     assert consistent and len(expected) == 4 and not inconsistent_runs
     mean_path, mean_error = mean_interior_path(boundary_records)
     assert mean_path is not None and mean_error is None
 
-    changed_boundary = [vertex.copy() for vertex in geometries[1]]
+    _, _, density = contact_density_grid(
+        [
+            {"model_vertices": geometries[0][0], "internal_contacts": geometries[0][1]},
+            {"model_vertices": geometries[1][0], "internal_contacts": geometries[1][1]},
+        ]
+    )
+    assert 0.99 < density.max() <= 1.0, "identical contacts must produce unit density"
+
+    shifted = fixture_definition([(x + 0.2, z) for x, z in base], 200)
+    vertices, polygons = io.parse_text(shifted)
+    shifted_geometry = model_geometry(vertices, polygons)
+    _, _, shifted_density = contact_density_grid(
+        [
+            {"model_vertices": geometries[0][0], "internal_contacts": geometries[0][1]},
+            {"model_vertices": shifted_geometry[0], "internal_contacts": shifted_geometry[1]},
+        ]
+    )
+    assert shifted_density.max() < density.max(), "shifted contacts must reduce peak concentration"
+
+    changed_boundary = [vertex.copy() for vertex in geometries[1][0]]
     changed_boundary[-3][1] = -4.9
     inconsistent, _, inconsistent_runs = boundary_check(
         [boundary_records[0], {"run": 2, "model_vertices": changed_boundary}]
@@ -740,9 +782,10 @@ def run_self_tests() -> None:
                     "geosirr_valid": True,
                     "format_valid": True,
                     "topology_valid": True,
-                    "vertex_count": len(geometries[0]),
+                    "vertex_count": len(geometries[0][0]),
                     "polygon_count": 2,
-                    "model_vertices": geometries[0],
+                    "model_vertices": geometries[0][0],
+                    "internal_contacts": geometries[0][1],
                     "attempts": 1,
                     "generation_time_seconds": 1.0,
                 }
@@ -757,6 +800,7 @@ def run_self_tests() -> None:
                     "vertex_count": None,
                     "polygon_count": None,
                     "model_vertices": None,
+                    "internal_contacts": None,
                     "attempts": 0,
                     "generation_time_seconds": 0.0,
                 }
@@ -874,11 +918,6 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         help="output directory; defaults to output/uq_<description>_<model>",
     )
-    parser.add_argument(
-        "--kde-bandwidth-km",
-        type=float,
-        help="Gaussian vertex-density bandwidth in km; defaults to 2%% of the smaller section span",
-    )
     group = parser.add_mutually_exclusive_group()
     group.add_argument("--self-test", action="store_true", help="run synthetic checks without Ollama")
     group.add_argument("--analyze-only", action="store_true", help="rebuild analysis from saved final outputs")
@@ -887,7 +926,7 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
-    configure_experiment(args.model, args.description, args.output_dir, args.kde_bandwidth_km)
+    configure_experiment(args.model, args.description, args.output_dir)
     try:
         if args.self_test:
             run_self_tests()
