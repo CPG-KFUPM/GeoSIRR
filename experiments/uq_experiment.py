@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run and analyze repeated GeoSIRR generations for a listric-fault description."""
+"""Run and analyze repeated GeoSIRR generations from a Markdown description."""
 
 from __future__ import annotations
 
@@ -8,13 +8,11 @@ import csv
 import hashlib
 import importlib.metadata
 import json
-import math
 import os
 import statistics
 import subprocess
 import sys
 import time
-from collections import defaultdict
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
@@ -32,13 +30,6 @@ DEFAULT_OLLAMA_HOST = "http://localhost:11434"
 RUN_COUNT = 10
 MAX_GEN_ITERATIONS = 5
 MAX_CHATS = 1
-TRACE_X = 8.0
-SECTION_WIDTH = 20.0
-SECTION_DEPTH = 5.0
-COORD_TOLERANCE_KM = 0.01
-PROXIMITY_KM = 0.05
-GRID_SPACING_KM = 0.025
-CHI2_95 = 5.991
 
 sys.path.insert(0, str(ROOT))
 
@@ -144,119 +135,14 @@ def select_ollama_host() -> dict[str, Any]:
     return selected
 
 
-def polygon_edges(vertex_ids: list[int]) -> list[tuple[int, int]]:
-    return list(zip(vertex_ids, vertex_ids[1:] + vertex_ids[:1]))
-
-
-def component_side(name: str) -> str | None:
-    if "^" not in name:
-        return None
-    suffix = name.split("^", 1)[1].lower().replace("_", "").replace("-", "")
-    if "footwall" in suffix or suffix in {"foot", "west", "western", "left", "fw"}:
-        return "footwall"
-    if "hangingwall" in suffix or suffix in {"hanging", "east", "eastern", "right", "hw"}:
-        return "hangingwall"
-    return None
-
-
-def extract_fault_vertices(definition: str) -> tuple[list[tuple[float, float]] | None, list[str]]:
-    """Extract the shared footwall/hanging-wall path, independent of vertex IDs."""
-    from geosirr import io
-
-    vertices, polygons = io.parse_text(definition)
-    coordinates = {vertex_id: (x, z) for vertex_id, x, z in vertices}
-    bases: dict[str, set[str]] = defaultdict(set)
-    edge_sides: dict[tuple[int, int], set[str]] = defaultdict(set)
-
-    for name, vertex_ids in polygons:
-        base = name.split("^", 1)[0]
-        side = component_side(name)
-        if side is not None:
-            bases[base].add(side)
-            for start, end in polygon_edges(vertex_ids):
-                edge_sides[tuple(sorted((start, end)))].add(side)
-
-    if not any(sides == {"footwall", "hangingwall"} for sides in bases.values()):
-        return None, ["polygon names do not define corresponding footwall and hanging-wall components"]
-
-    shared_edges = [edge for edge, sides in edge_sides.items() if sides == {"footwall", "hangingwall"}]
-    if not shared_edges:
-        return None, ["no shared footwall/hanging-wall edges were found"]
-
-    adjacency: dict[int, set[int]] = defaultdict(set)
-    for start, end in shared_edges:
-        adjacency[start].add(end)
-        adjacency[end].add(start)
-
-    trace_candidates = [
-        vertex_id
-        for vertex_id in adjacency
-        if abs(coordinates[vertex_id][0] - TRACE_X) <= COORD_TOLERANCE_KM
-        and abs(coordinates[vertex_id][1]) <= COORD_TOLERANCE_KM
-    ]
-    if len(trace_candidates) != 1:
-        return None, [f"expected one fault trace near (8, 0), found {len(trace_candidates)}"]
-
-    trace = trace_candidates[0]
-    component: set[int] = set()
-    stack = [trace]
-    while stack:
-        current = stack.pop()
-        if current in component:
-            continue
-        component.add(current)
-        stack.extend(adjacency[current] - component)
-
-    component_edges = [edge for edge in shared_edges if edge[0] in component and edge[1] in component]
-    if len(component_edges) != len(shared_edges):
-        return None, ["more than one disconnected footwall/hanging-wall contact was found"]
-    if any(len(adjacency[vertex_id] & component) > 2 for vertex_id in component):
-        return None, ["shared fault contact branches instead of forming one polyline"]
-
-    endpoints = [vertex_id for vertex_id in component if len(adjacency[vertex_id] & component) == 1]
-    if len(endpoints) != 2 or trace not in endpoints:
-        return None, ["shared fault contact is not one open polyline beginning at the trace"]
-    if len(component_edges) != len(component) - 1:
-        return None, ["shared fault contact is not a single connected path"]
-
-    ordered_ids = [trace]
-    previous = None
-    current = trace
-    while True:
-        next_ids = list((adjacency[current] & component) - ({previous} if previous is not None else set()))
-        if not next_ids:
-            break
-        if len(next_ids) != 1:
-            return None, ["fault path ordering is ambiguous"]
-        previous, current = current, next_ids[0]
-        ordered_ids.append(current)
-
-    return [coordinates[vertex_id] for vertex_id in ordered_ids], []
-
-
-def assess_fault_geometry(
-    definition: str,
-    require_seven_vertices: bool = True,
-) -> tuple[bool, list[tuple[float, float]] | None, list[str]]:
-    try:
-        points, reasons = extract_fault_vertices(definition)
-    except Exception as exc:
-        return False, None, [f"fault extraction failed: {type(exc).__name__}: {exc}"]
-    if points is None:
-        return False, None, reasons
-
-    if require_seven_vertices and len(points) != 7:
-        reasons.append(f"expected 7 ordered fault vertices, extracted {len(points)}")
-    if abs(points[0][0] - TRACE_X) > COORD_TOLERANCE_KM or abs(points[0][1]) > COORD_TOLERANCE_KM:
-        reasons.append("fault does not begin at x=8 km on the surface")
-    if abs(points[-1][1] + SECTION_DEPTH) > COORD_TOLERANCE_KM:
-        reasons.append("fault does not terminate at z=-5 km")
-    if any(points[index + 1][1] >= points[index][1] - COORD_TOLERANCE_KM for index in range(len(points) - 1)):
-        reasons.append("fault vertices are not monotonically ordered from shallow to deep")
-    if any(points[index + 1][0] <= points[index][0] + COORD_TOLERANCE_KM for index in range(len(points) - 1)):
-        reasons.append("fault does not progress eastward with depth")
-
-    return not reasons, points, reasons
+def model_geometry(
+    vertices: list[tuple[int, float, float]],
+    polygons: list[tuple[str, list[int]]],
+) -> tuple[list[list[float]], list[list[list[float]]]]:
+    coordinates = {vertex_id: [x, z] for vertex_id, x, z in vertices}
+    model_vertices = [coordinates[vertex_id] for vertex_id, _, _ in vertices]
+    model_polygons = [[coordinates[vertex_id] for vertex_id in vertex_ids] for _, vertex_ids in polygons]
+    return model_vertices, model_polygons
 
 
 def generation_attempts(chats: list[list[dict[str, Any]]]) -> int:
@@ -328,10 +214,8 @@ def run_generation(run_number: int, description: str, instruction_prompt: str) -
             "vertex_count": None,
             "polygon_count": None,
             "geosirr_valid": False,
-            "fault_line_eligible": False,
-            "fault_eligible": False,
-            "fault_reasons": [],
-            "fault_vertices": None,
+            "model_vertices": None,
+            "model_polygons": None,
             "failure_reason": None,
         }
 
@@ -348,6 +232,7 @@ def run_generation(run_number: int, description: str, instruction_prompt: str) -
             topology_valid = False
             topology_errors = [f"{type(exc).__name__}: {exc}"]
         vertices, polygons = gs.io.parse_text(definition)
+        model_vertices, model_polygons = model_geometry(vertices, polygons)
         geosirr_valid = bool(success and format_valid and topology_valid)
         record.update(
             {
@@ -358,23 +243,15 @@ def run_generation(run_number: int, description: str, instruction_prompt: str) -
                 "vertex_count": len(vertices),
                 "polygon_count": len(polygons),
                 "geosirr_valid": geosirr_valid,
+                "model_vertices": model_vertices,
+                "model_polygons": model_polygons,
             }
         )
-        if geosirr_valid:
-            line_eligible, _, line_reasons = assess_fault_geometry(definition, require_seven_vertices=False)
-            eligible, points, reasons = assess_fault_geometry(definition)
-            record["fault_line_eligible"] = line_eligible
-            record["fault_line_reasons"] = line_reasons
-            record["fault_eligible"] = eligible
-            record["fault_vertices"] = points
-            record["fault_reasons"] = reasons
-            if not eligible:
-                record["failure_reason"] = "prompt-compliance failure: " + "; ".join(reasons)
-        else:
+        if not geosirr_valid:
             record["failure_reason"] = "final output failed independent GeoSIRR validation"
 
         try:
-            render_section(definition, run_dir / "final_section.png", f"Listric fault realization {run_number}")
+            render_section(definition, run_dir / "final_section.png", f"GeoSIRR realization {run_number}")
         except Exception as exc:
             record["render_error"] = f"{type(exc).__name__}: {exc}"
         return record
@@ -392,10 +269,8 @@ def run_generation(run_number: int, description: str, instruction_prompt: str) -
             "vertex_count": None,
             "polygon_count": None,
             "geosirr_valid": False,
-            "fault_line_eligible": False,
-            "fault_eligible": False,
-            "fault_reasons": [],
-            "fault_vertices": None,
+            "model_vertices": None,
+            "model_polygons": None,
             "failure_reason": f"{type(exc).__name__}: {exc}",
         }
 
@@ -418,9 +293,8 @@ def load_and_revalidate_records() -> list[dict[str, Any]]:
                     "vertex_count": None,
                     "polygon_count": None,
                     "geosirr_valid": False,
-                    "fault_line_eligible": False,
-                    "fault_eligible": False,
-                    "fault_vertices": None,
+                    "model_vertices": None,
+                    "model_polygons": None,
                     "failure_reason": "run record is missing",
                 }
             )
@@ -437,6 +311,8 @@ def load_and_revalidate_records() -> list[dict[str, Any]]:
                 topology_valid = False
                 topology_errors = [f"{type(exc).__name__}: {exc}"]
             vertices, polygons = io.parse_text(definition)
+            model_vertices, model_polygons = model_geometry(vertices, polygons)
+            geosirr_valid = bool(record.get("generation_success") and format_valid and topology_valid)
             record.update(
                 {
                     "format_valid": format_valid,
@@ -445,99 +321,32 @@ def load_and_revalidate_records() -> list[dict[str, Any]]:
                     "topology_errors": topology_errors,
                     "vertex_count": len(vertices),
                     "polygon_count": len(polygons),
-                    "geosirr_valid": bool(record.get("generation_success") and format_valid and topology_valid),
+                    "geosirr_valid": geosirr_valid,
+                    "model_vertices": model_vertices,
+                    "model_polygons": model_polygons,
+                    "failure_reason": (
+                        None if geosirr_valid else "final output failed independent GeoSIRR validation"
+                    ),
                 }
             )
-            if record["geosirr_valid"]:
-                line_eligible, _, line_reasons = assess_fault_geometry(definition, require_seven_vertices=False)
-                eligible, points, reasons = assess_fault_geometry(definition)
-                record["fault_line_eligible"] = line_eligible
-                record["fault_line_reasons"] = line_reasons
-                record["fault_eligible"] = eligible
-                record["fault_vertices"] = points
-                record["fault_reasons"] = reasons
-                record["failure_reason"] = None if eligible else "prompt-compliance failure: " + "; ".join(reasons)
-            else:
-                record["fault_line_eligible"] = False
-                record["fault_eligible"] = False
-                record["fault_vertices"] = None
+        else:
+            record.update({"model_vertices": None, "model_polygons": None})
+        write_json(record_path, record)
         records.append(record)
     return records
 
 
-def uncertainty_statistics(faults: list[list[list[float]]]) -> tuple[Any, Any, Any, float, float]:
-    import numpy as np
-
-    values = np.asarray(faults, dtype=float)
-    if values.shape[0] < 2 or values.shape[1:] != (7, 2):
-        raise ValueError("uncertainty requires at least two eligible seven-vertex faults")
-    means = values.mean(axis=0)
-    covariances = np.stack([np.cov(values[:, index, :], rowvar=False, ddof=1) for index in range(7)])
-    radial = np.sqrt(np.trace(covariances, axis1=1, axis2=2))
-    overall = float(np.sqrt(np.trace(covariances, axis1=1, axis2=2).mean()))
-    return values, means, covariances, radial, overall
-
-
-def distance_to_fault_grid(fault: Any, grid_x: Any, grid_z: Any) -> Any:
-    import numpy as np
-
-    minimum = np.full(grid_x.shape, np.inf)
-    for start, end in zip(fault[:-1], fault[1:]):
-        dx = end[0] - start[0]
-        dz = end[1] - start[1]
-        scale = dx * dx + dz * dz
-        projection = ((grid_x - start[0]) * dx + (grid_z - start[1]) * dz) / scale
-        projection = np.clip(projection, 0.0, 1.0)
-        nearest_x = start[0] + projection * dx
-        nearest_z = start[1] + projection * dz
-        minimum = np.minimum(minimum, np.hypot(grid_x - nearest_x, grid_z - nearest_z))
-    return minimum
-
-
-def probability_grid(values: Any) -> tuple[Any, Any, Any]:
-    import numpy as np
-
-    x = np.arange(0.0, SECTION_WIDTH + GRID_SPACING_KM / 2, GRID_SPACING_KM)
-    z = np.arange(-SECTION_DEPTH, GRID_SPACING_KM / 2, GRID_SPACING_KM)
-    grid_x, grid_z = np.meshgrid(x, z)
-    counts = np.zeros(grid_x.shape, dtype=float)
-    for fault in values:
-        counts += distance_to_fault_grid(fault, grid_x, grid_z) <= PROXIMITY_KM
-    return x, z, counts / len(values)
-
-
-def add_covariance_shape(ax: Any, mean: Any, covariance: Any) -> None:
-    import numpy as np
-    from matplotlib.patches import Ellipse
-
-    eigenvalues, eigenvectors = np.linalg.eigh(covariance)
-    eigenvalues = np.maximum(eigenvalues, 0.0)
-    if eigenvalues[-1] < 1e-14:
-        ax.plot(mean[0], mean[1], marker="o", markerfacecolor="none", markeredgecolor="black", markersize=7)
-        return
-    principal = eigenvectors[:, -1]
-    if eigenvalues[0] < 1e-14:
-        half_length = math.sqrt(CHI2_95 * eigenvalues[-1])
-        endpoints = np.vstack((mean - half_length * principal, mean + half_length * principal))
-        ax.plot(endpoints[:, 0], endpoints[:, 1], color="black", linewidth=1.2)
-        return
-    width, height = 2.0 * np.sqrt(CHI2_95 * eigenvalues)
-    angle = math.degrees(math.atan2(principal[1], principal[0]))
-    ax.add_patch(
-        Ellipse(
-            xy=mean,
-            width=height,
-            height=width,
-            angle=angle,
-            facecolor="none",
-            edgecolor="black",
-            linewidth=1.1,
-        )
-    )
-
-
 def range_text(values: list[float], digits: int = 2) -> str:
     return f"{min(values):.{digits}f}–{max(values):.{digits}f}"
+
+
+def experiment_identity() -> tuple[str, str]:
+    experiment_path = OUTPUT_DIR / "experiment.json"
+    if experiment_path.exists():
+        experiment = json.loads(experiment_path.read_text(encoding="utf-8"))
+        generation = experiment.get("generation", {})
+        return generation.get("llm_name", MODEL), generation.get("llm_backend", "unknown")
+    return MODEL, "ollama"
 
 
 def write_analysis(records: list[dict[str, Any]]) -> dict[str, Any]:
@@ -545,25 +354,39 @@ def write_analysis(records: list[dict[str, Any]]) -> dict[str, Any]:
     import numpy as np
 
     valid = [record for record in records if record.get("geosirr_valid")]
-    line_eligible = [record for record in records if record.get("fault_line_eligible")]
-    eligible = [record for record in records if record.get("fault_eligible")]
-    rates = {
+    model, backend = experiment_identity()
+    attempts = [float(record.get("attempts", 0)) for record in records]
+    times = [float(record.get("generation_time_seconds", 0.0)) for record in records]
+    vertex_counts = [float(record["vertex_count"]) for record in valid]
+    polygon_counts = [float(record["polygon_count"]) for record in valid]
+    statistics_result = {
         "attempted": RUN_COUNT,
         "valid": len(valid),
-        "line_eligible": len(line_eligible),
-        "eligible": len(eligible),
         "R_gen": len(valid) / RUN_COUNT,
-        "R_line": len(line_eligible) / RUN_COUNT,
-        "R_fault": len(eligible) / RUN_COUNT,
+        "attempts_mean": statistics.fmean(attempts),
+        "attempts_min": min(attempts),
+        "attempts_max": max(attempts),
+        "generation_time_mean_seconds": statistics.fmean(times),
+        "generation_time_min_seconds": min(times),
+        "generation_time_max_seconds": max(times),
     }
+    if valid:
+        statistics_result.update(
+            {
+                "vertex_count_mean": statistics.fmean(vertex_counts),
+                "vertex_count_min": min(vertex_counts),
+                "vertex_count_max": max(vertex_counts),
+                "polygon_count_mean": statistics.fmean(polygon_counts),
+                "polygon_count_min": min(polygon_counts),
+                "polygon_count_max": max(polygon_counts),
+            }
+        )
 
     with (OUTPUT_DIR / "run_summary.csv").open("w", newline="", encoding="utf-8") as handle:
         fields = [
             "run",
             "generation_success",
             "geosirr_valid",
-            "fault_line_eligible",
-            "fault_eligible",
             "attempts",
             "generation_time_seconds",
             "format_valid",
@@ -578,117 +401,64 @@ def write_analysis(records: list[dict[str, Any]]) -> dict[str, Any]:
             writer.writerow(record)
 
     summary_lines = [
-        "# Listric-fault experiment summary",
+        "# GeoSIRR repeated-generation summary",
         "",
+        f"- Model: `{model}`",
+        f"- Backend: `{backend}`",
         f"- Attempted runs: {RUN_COUNT}",
         f"- Independently valid GeoSIRR generations: {len(valid)}",
-        f"- Extractable final fault polylines: {len(line_eligible)}",
-        f"- Listric-geometry-eligible generations: {len(eligible)}",
-        f"- R_gen: {rates['R_gen']:.3f}",
-        f"- R_line: {rates['R_line']:.3f}",
-        f"- R_fault: {rates['R_fault']:.3f}",
-        f"- Eligibility coordinate tolerance: {COORD_TOLERANCE_KM:g} km",
-        f"- Probability-map proximity radius: {PROXIMITY_KM:g} km",
+        f"- Generation success rate: $R_{{\\mathrm{{gen}}}}={statistics_result['R_gen']:.3f}$",
+        f"- Generation attempts: mean {statistics.fmean(attempts):.2f}, range {range_text(attempts, 0)}",
+        f"- Generation time: mean {statistics.fmean(times):.1f} s, range {range_text(times, 1)} s",
         "",
-        "A GeoSIRR-valid output that fails the seven-vertex listric criteria is a prompt-compliance failure and is excluded from vertex covariance calculations, but its extractable final fault polyline remains in the proximity heat map.",
+        "The generation success rate is",
         "",
-        "## Uncertainty definitions",
+        "$$",
+        "R_{\\mathrm{gen}}=\\frac{N_{\\mathrm{valid}}}{N_{\\mathrm{attempted}}}.",
+        "$$",
         "",
-        "For eligible run r and ordered fault vertex j, let v_r,j = [x_r,j, z_r,j]^T. The per-vertex mean and sample covariance are",
+        "## Geometry overlay",
         "",
-        "mu_j = (1/N) sum_r v_r,j,",
-        "",
-        "Sigma_j = (1/(N-1)) sum_r (v_r,j - mu_j)(v_r,j - mu_j)^T.",
-        "",
-        "The radial vertex dispersion is u_j = sqrt(trace(Sigma_j)). The overall metric is U_RMS = sqrt((1/7) sum_j trace(Sigma_j)), and U_RMS* = U_RMS / 5 km.",
-        "",
-        "The plotted 95% covariance contour satisfies (v - mu_j)^T Sigma_j^-1 (v - mu_j) = 5.991. Singular covariance is shown as a point or line.",
-        "",
-        "For grid point q and extractable final fault polyline F_r, P_epsilon(q) = (1/N_line) sum_r I[d(q, F_r) <= epsilon], with epsilon = 0.05 km.",
+        "The figure overlays every polygon boundary and every declared vertex from each final valid generation. Colors identify runs. No correspondence between vertices in different runs is assumed, so the overlay is descriptive and does not define a scalar geometric-uncertainty metric.",
     ]
-
-    has_vertex_uncertainty = len(eligible) >= 2
-    if has_vertex_uncertainty:
-        faults = [record["fault_vertices"] for record in eligible]
-        _, means, covariances, radial, overall = uncertainty_statistics(faults)
-        normalized = overall / SECTION_DEPTH
-        rates.update({"U_RMS_km": overall, "U_RMS_normalized": normalized})
-
-        with (OUTPUT_DIR / "vertex_uncertainty.csv").open("w", newline="", encoding="utf-8") as handle:
-            writer = csv.writer(handle)
-            writer.writerow(
-                ["vertex_index", "mean_x_km", "mean_z_km", "cov_xx_km2", "cov_xz_km2", "cov_zz_km2", "u_j_km"]
-            )
-            for index in range(7):
-                writer.writerow(
-                    [
-                        index,
-                        means[index, 0],
-                        means[index, 1],
-                        covariances[index, 0, 0],
-                        covariances[index, 0, 1],
-                        covariances[index, 1, 1],
-                        radial[index],
-                    ]
-                )
-    else:
-        means = covariances = None
-        overall = normalized = None
-        (OUTPUT_DIR / "vertex_uncertainty.csv").write_text(
-            "vertex_index,mean_x_km,mean_z_km,cov_xx_km2,cov_xz_km2,cov_zz_km2,u_j_km\n",
-            encoding="utf-8",
+    if valid:
+        summary_lines.extend(
+            [
+                "",
+                f"- Vertices per valid model: mean {statistics.fmean(vertex_counts):.1f}, range {range_text(vertex_counts, 0)}",
+                f"- Polygons per valid model: mean {statistics.fmean(polygon_counts):.1f}, range {range_text(polygon_counts, 0)}",
+            ]
         )
-        summary_lines.extend(["", "Vertex covariance was not calculated because fewer than two runs had seven fault vertices."])
-
-    line_values = [np.asarray(record["fault_vertices"], dtype=float) for record in line_eligible]
-    if line_values:
-        x, z, probability = probability_grid(line_values)
         fig, ax = plt.subplots(figsize=(11, 5.5))
-        heatmap = ax.imshow(
-            probability,
-            origin="lower",
-            extent=(x[0], x[-1], z[0], z[-1]),
-            cmap="YlOrRd",
-            vmin=0.0,
-            vmax=1.0,
-            interpolation="nearest",
-            aspect="equal",
-        )
         colors = plt.colormaps["tab10"]
-        for index, (record, fault) in enumerate(zip(line_eligible, line_values)):
-            color = colors(index % 10)
-            ax.plot(fault[:, 0], fault[:, 1], color=color, linewidth=1.0, alpha=0.45)
+        all_vertices = []
+        for record in valid:
+            run_number = int(record["run"])
+            color = colors((run_number - 1) % 10)
+            vertices = np.asarray(record["model_vertices"], dtype=float)
+            all_vertices.append(vertices)
+            for polygon in record["model_polygons"]:
+                points = np.asarray(polygon + [polygon[0]], dtype=float)
+                ax.plot(points[:, 0], points[:, 1], color=color, linewidth=0.8, alpha=0.22)
             ax.scatter(
-                fault[:, 0],
-                fault[:, 1],
-                color=color,
-                s=20,
-                alpha=0.8,
+                vertices[:, 0],
+                vertices[:, 1],
+                facecolors="none",
+                edgecolors=[color],
+                s=14 + 3 * (RUN_COUNT - run_number),
+                linewidths=0.9,
+                alpha=0.9,
                 label=f"Run {record['run']}",
                 zorder=3,
             )
-
-        if has_vertex_uncertainty:
-            ax.plot(means[:, 0], means[:, 1], color="black", linewidth=2.2, label="7-vertex mean", zorder=4)
-            ax.scatter(means[:, 0], means[:, 1], color="black", s=24, zorder=5)
-            for mean, covariance in zip(means, covariances):
-                add_covariance_shape(ax, mean, covariance)
-
-        attempts = [float(record.get("attempts", 0)) for record in records]
-        times = [float(record.get("generation_time_seconds", 0.0)) for record in records]
         annotation_lines = [
             f"Attempted: {RUN_COUNT}",
-            f"N_valid: {len(valid)}   N_lines: {len(line_eligible)}",
-            f"N_7vertex: {len(eligible)}",
-            f"R_gen: {rates['R_gen']:.2f}   R_line: {rates['R_line']:.2f}",
-            f"R_fault: {rates['R_fault']:.2f}",
+            f"N_valid: {len(valid)}   R_gen: {statistics_result['R_gen']:.2f}",
             f"Attempts: mean {statistics.fmean(attempts):.2f}, range {range_text(attempts, 0)}",
             f"Time: mean {statistics.fmean(times):.1f} s, range {range_text(times, 1)} s",
+            f"Vertices/model: mean {statistics.fmean(vertex_counts):.1f}, range {range_text(vertex_counts, 0)}",
+            f"Polygons/model: mean {statistics.fmean(polygon_counts):.1f}, range {range_text(polygon_counts, 0)}",
         ]
-        if has_vertex_uncertainty:
-            annotation_lines.extend(
-                [f"U_RMS: {overall:.4f} km", f"U_RMS*: {normalized:.4f}"]
-            )
         ax.text(
             0.015,
             0.025,
@@ -699,55 +469,50 @@ def write_analysis(records: list[dict[str, Any]]) -> dict[str, Any]:
             fontsize=8.5,
             bbox={"facecolor": "white", "edgecolor": "0.4", "alpha": 0.9},
         )
-        ax.set_xlim(0, SECTION_WIDTH)
-        ax.set_ylim(-SECTION_DEPTH, 0)
+        combined = np.vstack(all_vertices)
+        x_span = max(float(np.ptp(combined[:, 0])), 1.0)
+        z_span = max(float(np.ptp(combined[:, 1])), 1.0)
+        ax.set_xlim(combined[:, 0].min() - 0.02 * x_span, combined[:, 0].max() + 0.02 * x_span)
+        ax.set_ylim(combined[:, 1].min() - 0.04 * z_span, combined[:, 1].max() + 0.04 * z_span)
         ax.set_xlabel("Horizontal distance x (km)")
         ax.set_ylabel("Elevation z (km)")
-        ax.set_title("Final listric-fault realizations and empirical 50 m proximity probability")
+        ax.set_title("Final GeoSIRR geometry realizations and all model vertices")
+        ax.set_aspect("equal", adjustable="box")
         ax.grid(color="0.75", linestyle="--", linewidth=0.5)
-        ax.legend(loc="upper right", ncols=2, fontsize=7)
-        colorbar = fig.colorbar(heatmap, ax=ax, pad=0.02)
-        colorbar.set_label(r"Empirical proximity probability $P_{\epsilon}$")
+        ax.legend(
+            loc="upper right",
+            ncols=2,
+            fontsize=7,
+            title=f"Model: {model}\nBackend: {backend}",
+            title_fontsize=7.5,
+        )
         fig.tight_layout()
         fig.savefig(OUTPUT_DIR / "uq_summary.png", dpi=300, bbox_inches="tight")
         plt.close(fig)
     else:
-        summary_lines.extend(["", "The proximity heat map was not created because no final fault polyline was extractable."])
+        summary_lines.extend(["", "The geometry overlay was not created because no final generation was valid."])
 
-    if has_vertex_uncertainty:
-        summary_lines.extend(
-            [
-                "",
-                f"- U_RMS: {overall:.6f} km",
-                f"- U_RMS normalized by 5 km depth: {normalized:.6f}",
-            ]
-        )
-    summary_lines.extend(
-        [
-            "",
-            "U_RMS measures repeatability of the seven ordered control vertices in final seven-vertex generations. The heat map uses every extractable final fault polyline, without resampling variable-length vertex sequences, and gives the empirical fraction within 0.05 km of each grid point. Neither quantity represents uncertainty in the real subsurface fault location.",
-        ]
-    )
+    (OUTPUT_DIR / "vertex_uncertainty.csv").unlink(missing_ok=True)
     (OUTPUT_DIR / "summary.md").write_text("\n".join(summary_lines) + "\n", encoding="utf-8")
-    write_json(OUTPUT_DIR / "statistics.json", rates)
-    return rates
+    write_json(OUTPUT_DIR / "statistics.json", statistics_result)
+    return statistics_result
 
 
 def fixture_definition(points: list[tuple[float, float]], id_offset: int = 0) -> str:
     left_top = id_offset
-    fault_ids = list(range(id_offset + 1, id_offset + 1 + len(points)))
+    interior_ids = list(range(id_offset + 1, id_offset + 1 + len(points)))
     left_bottom = id_offset + 1 + len(points)
     right_top = left_bottom + 1
     right_bottom = left_bottom + 2
     lines = [f"{left_top} 0.0 0.0"]
-    lines.extend(f"{vertex_id} {x} {z}" for vertex_id, (x, z) in zip(fault_ids, points))
+    lines.extend(f"{vertex_id} {x} {z}" for vertex_id, (x, z) in zip(interior_ids, points))
     lines.extend(
         [
             f"{left_bottom} 0.0 -5.0",
             f"{right_top} 20.0 0.0",
             f"{right_bottom} 20.0 -5.0",
-            "unit^footwall " + " ".join(map(str, [left_top, *fault_ids, left_bottom])),
-            "unit^hangingwall " + " ".join(map(str, [*fault_ids, right_bottom, right_top][::-1])),
+            "unit^west " + " ".join(map(str, [left_top, *interior_ids, left_bottom])),
+            "unit^east " + " ".join(map(str, [*interior_ids, right_bottom, right_top][::-1])),
         ]
     )
     return "\n".join(lines) + "\n"
@@ -757,99 +522,60 @@ def run_self_tests() -> None:
     global OUTPUT_DIR
     import tempfile
 
-    import numpy as np
     from geosirr import io
 
     base = [(8.0, 0.0), (8.6, -0.8), (9.3, -1.6), (10.2, -2.5), (11.3, -3.4), (12.6, -4.2), (14.0, -5.0)]
     identical_a = fixture_definition(base, 0)
     identical_b = fixture_definition(base, 100)
+    geometries = []
     for fixture in (identical_a, identical_b):
         assert io.validate_cross_section_format(fixture)[0]
         assert io.validate_cross_section_topology(fixture)[0]
-        eligible, points, reasons = assess_fault_geometry(fixture)
-        assert eligible, reasons
-        assert points == base
-
-    _, points_a, _ = assess_fault_geometry(identical_a)
-    _, points_b, _ = assess_fault_geometry(identical_b)
-    values, _, covariances, _, overall = uncertainty_statistics([points_a, points_b])
-    assert overall == 0.0
-    _, _, probability = probability_grid(values)
-    assert probability.max() == 1.0
-    assert 0 < np.count_nonzero(probability == 1.0) < probability.size
-
-    shifted = base.copy()
-    shifted[1:-1] = [(x + 0.2, z) for x, z in shifted[1:-1]]
-    shifted_fixture = fixture_definition(shifted, 200)
-    shifted_eligible, shifted_points, shifted_reasons = assess_fault_geometry(shifted_fixture)
-    assert shifted_eligible, shifted_reasons
-    shifted_values, _, shifted_covariances, _, shifted_overall = uncertainty_statistics([points_a, shifted_points])
-    assert shifted_overall > 0.0
-    assert np.any(shifted_covariances > covariances)
-    _, _, shifted_probability = probability_grid(shifted_values)
-    assert np.count_nonzero(shifted_probability) > np.count_nonzero(probability)
-
-    # Remove one interior point while preserving the terminal point.
-    short_points = base[:4] + base[5:]
-    short_fixture = fixture_definition(short_points, 300)
-    short_eligible, extracted, short_reasons = assess_fault_geometry(short_fixture)
-    assert not short_eligible
-    assert extracted is not None and len(extracted) == 6
-    assert any("expected 7" in reason for reason in short_reasons)
-    short_line_eligible, _, short_line_reasons = assess_fault_geometry(
-        short_fixture, require_seven_vertices=False
-    )
-    assert short_line_eligible, short_line_reasons
-
-    long_points = base[:4] + [(10.7, -2.9)] + base[4:]
-    long_fixture = fixture_definition(long_points, 400)
-    long_eligible, extracted, long_reasons = assess_fault_geometry(long_fixture)
-    assert not long_eligible
-    assert extracted is not None and len(extracted) == 8
-    assert any("expected 7" in reason for reason in long_reasons)
-
-    records = [
-        {"generation_success": False, "geosirr_valid": False, "fault_eligible": False, "fault_vertices": None},
-        {"generation_success": True, "geosirr_valid": True, "fault_eligible": True, "fault_vertices": points_a},
-        {"generation_success": True, "geosirr_valid": True, "fault_eligible": True, "fault_vertices": shifted_points},
-    ]
-    uncertainty_inputs = [record["fault_vertices"] for record in records if record["fault_eligible"]]
-    assert len(uncertainty_inputs) == 2
-    assert sum(record["geosirr_valid"] for record in records) == 2
+        vertices, polygons = io.parse_text(fixture)
+        geometries.append(model_geometry(vertices, polygons))
+    assert geometries[0] == geometries[1], "vertex IDs must not affect plotted geometry"
 
     previous_output_dir = OUTPUT_DIR
     try:
         with tempfile.TemporaryDirectory() as directory:
             OUTPUT_DIR = Path(directory)
-            line_only_records = [
+            records = [
                 {
                     "run": 1,
                     "generation_success": True,
                     "geosirr_valid": True,
-                    "fault_line_eligible": True,
-                    "fault_eligible": False,
-                    "fault_vertices": extracted,
+                    "format_valid": True,
+                    "topology_valid": True,
+                    "vertex_count": len(geometries[0][0]),
+                    "polygon_count": len(geometries[0][1]),
+                    "model_vertices": geometries[0][0],
+                    "model_polygons": geometries[0][1],
                     "attempts": 1,
                     "generation_time_seconds": 1.0,
                 }
             ]
-            line_only_records.extend(
+            records.extend(
                 {
                     "run": run,
                     "generation_success": False,
                     "geosirr_valid": False,
-                    "fault_line_eligible": False,
-                    "fault_eligible": False,
-                    "fault_vertices": None,
+                    "format_valid": None,
+                    "topology_valid": None,
+                    "vertex_count": None,
+                    "polygon_count": None,
+                    "model_vertices": None,
+                    "model_polygons": None,
                     "attempts": 0,
                     "generation_time_seconds": 0.0,
                 }
                 for run in range(2, RUN_COUNT + 1)
             )
-            line_only_statistics = write_analysis(line_only_records)
-            assert line_only_statistics["line_eligible"] == 1
-            assert line_only_statistics["eligible"] == 0
+            (OUTPUT_DIR / "vertex_uncertainty.csv").write_text("obsolete\n", encoding="utf-8")
+            result = write_analysis(records)
+            assert result["valid"] == 1
+            assert result["R_gen"] == 0.1
             assert (OUTPUT_DIR / "uq_summary.png").is_file()
+            assert not (OUTPUT_DIR / "vertex_uncertainty.csv").exists()
     finally:
         OUTPUT_DIR = previous_output_dir
     print("Synthetic analysis checks passed.")
@@ -918,7 +644,7 @@ def run_live_experiment() -> None:
         write_json(record_path, record)
         print(
             f"Run {run_number:02d}: generation_success={record['generation_success']}, "
-            f"geosirr_valid={record['geosirr_valid']}, fault_eligible={record['fault_eligible']}, "
+            f"geosirr_valid={record['geosirr_valid']}, "
             f"attempts={record['attempts']}, time={record['generation_time_seconds']:.1f}s"
         )
 

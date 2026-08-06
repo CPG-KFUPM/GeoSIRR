@@ -264,12 +264,12 @@ DSL definitions can be found in the main prompt in file [`prompts/section_text_g
 
 The experiment runner [`experiments/uq_experiment.py`](experiments/uq_experiment.py) executes ten independent GeoSIRR generations from a Markdown description and analyzes only the final returned geometry from each run. It uses the exact Ollama model requested, never pulls or substitutes a model, and reads the Ollama server from `OLLAMA_HOST` in `.env`. The default model is `gemma4:31b`.
 
-The current analysis profile is specific to the 20 km by 5 km listric-fault experiment: it extracts the shared fault contact from x = 8 km at the surface to the section base. Different descriptions of that same experiment can be supplied with `--description`.
+The analysis is geometry-agnostic: it reruns both GeoSIRR validators on every final output, reports generation statistics, and overlays every polygon boundary and every declared vertex from each valid model. Different descriptions can be supplied with `--description`.
 
 Two descriptions are provided:
 
 - [`experiments/listric_fault_baseline.md`](experiments/listric_fault_baseline.md) reproduces the original template description.
-- [`experiments/listric_fault_constrained.md`](experiments/listric_fault_constrained.md) fixes the seven fault control points and polygon suffixes to test whether a more specific prompt reduces generated variability.
+- [`experiments/listric_fault_constrained.md`](experiments/listric_fault_constrained.md) fixes the fault endpoint at $(x,z)=(16,-5)$ km and reinforces the six-segment construction to test whether a more specific prompt reduces generated variability.
 
 With the `geosirr` environment activated, run the baseline experiment with the defaults:
 
@@ -300,13 +300,15 @@ python experiments/uq_experiment.py \
 
 Use `--output-dir` when reading or writing a non-default directory. Existing per-run records in that directory are retained and skipped, allowing an interrupted experiment to resume.
 
-The summary distinguishes three populations:
+The reported generation success rate is
 
-- `R_gen`: final outputs passing both GeoSIRR validators;
-- `R_line`: final outputs with an extractable surface-to-base fault polyline, used in the proximity heat map;
-- `R_fault`: outputs with exactly six fault segments and seven ordered vertices, used for per-vertex covariance, uncertainty ellipses, and $U_\mathrm{RMS}$.
+$$
+R_{\mathrm{gen}}=\frac{N_{\mathrm{valid}}}{N_{\mathrm{attempted}}},
+$$
 
-The heat map is an empirical probability-of-proximity map over generated final geometries. It is not a probability of the fault's real subsurface location. Comparing the baseline and constrained descriptions measures sensitivity to prompt specificity, not geological epistemic uncertainty.
+where $N_{\mathrm{valid}}$ is the number of final outputs passing both existing GeoSIRR validators. The summary also reports generation attempts, runtimes, and the vertex and polygon counts of valid models. The LLM model and backend are written to `summary.md` and displayed in the figure legend.
+
+The figure is a direct overlay, not a probability heat map. Each run has its own color; thin lines show all polygon boundaries and markers show all declared vertices. Stable vertices therefore coincide across runs, while variable vertices form visible clusters or spreads. The analysis does not match vertices between runs and does not calculate a fault-specific mean, covariance, proximity score, or scalar geometric-uncertainty metric. Comparing the baseline and constrained descriptions measures sensitivity to prompt specificity, not geological epistemic uncertainty.
 
 ### Refining Sections
 
