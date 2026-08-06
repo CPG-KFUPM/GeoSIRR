@@ -849,9 +849,6 @@ def run_live_experiment() -> None:
     RUNS_DIR.mkdir(parents=True, exist_ok=True)
     selected = select_ollama_host()
 
-    # Import GeoSIRR only after OLLAMA_HOST has been set.
-    import clarification
-
     description = DESCRIPTION_PATH.read_text(encoding="utf-8")
     instruction_prompt = (ROOT / "prompts" / "section_text_generation.md").read_text(encoding="utf-8")
     (OUTPUT_DIR / "description.md").write_text(description, encoding="utf-8")
@@ -876,21 +873,6 @@ def run_live_experiment() -> None:
         },
     }
     write_json(OUTPUT_DIR / "experiment.json", experiment)
-
-    clarification_path = OUTPUT_DIR / "clarification.json"
-    if clarification_path.exists():
-        clarification_result = json.loads(clarification_path.read_text(encoding="utf-8"))
-    else:
-        print(f"Clarifying frozen description once with {MODEL} at {selected['host']}...")
-        clarification_result = clarification.validate_description(
-            description, llm_model=MODEL, llm_backend="ollama"
-        )
-        write_json(clarification_path, clarification_result)
-    if clarification_result.get("status") != "complete":
-        raise RuntimeError(
-            "The one-time clarification check did not classify the frozen description as complete; "
-            "no generation runs were started."
-        )
 
     for run_number in range(1, RUN_COUNT + 1):
         record_path = RUNS_DIR / f"run_{run_number:02d}" / "record.json"
