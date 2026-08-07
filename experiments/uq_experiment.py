@@ -34,6 +34,7 @@ MAX_CHATS = 1
 BOUNDARY_TOLERANCE_KM = 1e-6
 MEAN_LINE_SAMPLES = 101
 CONTACT_DENSITY_SIGMA_KM = 0.10
+UQ_FIGURE_NAME = "uq_geometry_variability.png"
 
 sys.path.insert(0, str(ROOT))
 
@@ -472,6 +473,7 @@ def experiment_identity() -> tuple[str, str]:
 def write_analysis(records: list[dict[str, Any]]) -> dict[str, Any]:
     import matplotlib.pyplot as plt
     import numpy as np
+    from matplotlib.ticker import FuncFormatter
 
     valid = [record for record in records if record.get("geosirr_valid")]
     model, backend = experiment_identity()
@@ -636,6 +638,7 @@ def write_analysis(records: list[dict[str, Any]]) -> dict[str, Any]:
                 s=20,
                 alpha=0.62,
                 label=f"Run {record['run']}",
+                clip_on=False,
                 zorder=3,
             )
         if mean_path is not None:
@@ -654,6 +657,7 @@ def write_analysis(records: list[dict[str, Any]]) -> dict[str, Any]:
                 mean_nodes[:, 1],
                 color="black",
                 s=14,
+                clip_on=False,
                 zorder=5,
             )
         annotation_lines = [
@@ -680,8 +684,11 @@ def write_analysis(records: list[dict[str, Any]]) -> dict[str, Any]:
         combined = np.vstack(all_vertices)
         ax.set_xlim(combined[:, 0].min(), combined[:, 0].max())
         ax.set_ylim(combined[:, 1].min(), combined[:, 1].max())
-        ax.set_xlabel("Horizontal distance x (km)")
-        ax.set_ylabel("Elevation z (km)")
+        ax.set_xlabel("Distance (km)")
+        ax.set_ylabel("Depth (km)")
+        ax.yaxis.set_major_formatter(
+            FuncFormatter(lambda z_value, _: f"{0 if abs(z_value) < 1e-12 else -z_value:g}")
+        )
         ax.set_title("Generated model vertices, internal-contact density, and mean interior path")
         ax.set_aspect("equal", adjustable="box")
         ax.grid(color="0.75", linestyle="--", linewidth=0.5)
@@ -703,7 +710,7 @@ def write_analysis(records: list[dict[str, Any]]) -> dict[str, Any]:
             [colorbar_position.x0, axes_position.y0, colorbar_position.width, axes_position.height]
         )
         fig.savefig(
-            OUTPUT_DIR / "uq_summary.png",
+            OUTPUT_DIR / UQ_FIGURE_NAME,
             dpi=300,
             bbox_inches="tight",
             bbox_extra_artists=(legend,),
@@ -831,7 +838,7 @@ def run_self_tests() -> None:
             assert result["R_gen"] == 0.1
             assert result["boundaries_consistent"]
             assert result["mean_interior_path_available"]
-            assert (OUTPUT_DIR / "uq_summary.png").is_file()
+            assert (OUTPUT_DIR / UQ_FIGURE_NAME).is_file()
             assert (OUTPUT_DIR / "mean_interior_path.csv").is_file()
             assert not (OUTPUT_DIR / "vertex_uncertainty.csv").exists()
     finally:
