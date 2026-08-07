@@ -284,7 +284,7 @@ DSL definitions can be found in the main prompt in file [`prompts/section_text_g
 
 ### Uncertainty-quantification experiment
 
-The experiment runner [`experiments/uq_experiment.py`](experiments/uq_experiment.py) executes ten independent GeoSIRR generations from a Markdown description and analyzes only the final returned geometry from each run. It uses the exact Ollama model requested, never pulls or substitutes a model, and reads the Ollama server from `OLLAMA_HOST` in `.env`. The default model is `gemma4:31b`.
+The experiment runner [`experiments/uq_experiment.py`](experiments/uq_experiment.py) executes ten independent GeoSIRR generations from a Markdown description and analyzes only the final returned geometry from each run. It supports Ollama (the default) and OpenAI backends. For Ollama, it uses the exact requested model, never pulls or substitutes a model, and reads the server from `OLLAMA_HOST` in `.env`. OpenAI runs use `OPENAI_API_KEY` from the environment or `.env`. The default model is `gemma4:31b` with the Ollama backend.
 
 The analysis reruns both GeoSIRR validators on every final output, reports generation statistics, and overlays every declared vertex from each valid model. Different descriptions can be supplied with `--description`.
 
@@ -312,7 +312,13 @@ Override the model when required, e.g.:
 python experiments/uq_experiment.py --model gemma4:26b
 ```
 
-Each model/description combination receives a separate directory named `output/uq_<description>_<model>`. A completed directory can be reanalyzed without contacting Ollama:
+Run the same experiment with an OpenAI model, for example:
+
+```bash
+python experiments/uq_experiment.py --backend openai --model gpt-5.6
+```
+
+Each model/description combination receives a separate directory named `output/uq_<description>_<model>` for Ollama, or `output/uq_<description>_<model>_openai` for OpenAI. A completed directory can be reanalyzed without contacting an LLM provider:
 
 ```bash
 python experiments/uq_experiment.py \

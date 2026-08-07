@@ -22,8 +22,10 @@ from dotenv import load_dotenv
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_MODEL = "gemma4:31b"
+DEFAULT_BACKEND = "ollama"
 DEFAULT_DESCRIPTION = ROOT / "experiments" / "listric_fault_baseline.md"
 MODEL = DEFAULT_MODEL
+BACKEND = DEFAULT_BACKEND
 DESCRIPTION_PATH = DEFAULT_DESCRIPTION
 OUTPUT_DIR = ROOT / "output" / "uq_listric_fault_baseline_gemma4_31b"
 RUNS_DIR = OUTPUT_DIR / "runs"
@@ -45,15 +47,18 @@ os.environ.setdefault("MPLCONFIGDIR", str(OUTPUT_DIR / ".matplotlib"))
 
 def configure_experiment(
     model: str,
+    backend: str,
     description: Path,
     output_dir: Path | None,
 ) -> None:
-    global MODEL, DESCRIPTION_PATH, OUTPUT_DIR, RUNS_DIR
+    global MODEL, BACKEND, DESCRIPTION_PATH, OUTPUT_DIR, RUNS_DIR
     MODEL = model
+    BACKEND = backend
     DESCRIPTION_PATH = description.resolve()
     model_slug = model.replace(":", "_").replace("/", "_")
     if output_dir is None:
-        OUTPUT_DIR = ROOT / "output" / f"uq_{DESCRIPTION_PATH.stem}_{model_slug}"
+        backend_suffix = "" if backend == DEFAULT_BACKEND else f"_{backend}"
+        OUTPUT_DIR = ROOT / "output" / f"uq_{DESCRIPTION_PATH.stem}_{model_slug}{backend_suffix}"
     else:
         OUTPUT_DIR = output_dir if output_dir.is_absolute() else ROOT / output_dir
         OUTPUT_DIR = OUTPUT_DIR.resolve()
@@ -142,6 +147,23 @@ def select_ollama_host() -> dict[str, Any]:
         )
     os.environ["OLLAMA_HOST"] = selected["host"]
     return selected
+
+
+def select_model_provider() -> dict[str, Any]:
+    load_dotenv(ROOT / ".env")
+    if BACKEND == "ollama":
+        selected = select_ollama_host()
+        selected["backend"] = BACKEND
+        return selected
+
+    from geosirr.llm import load_openai_api_key
+
+    load_openai_api_key()
+    return {
+        "backend": BACKEND,
+        "client_version": importlib.metadata.version("openai"),
+        "model": {"name": MODEL},
+    }
 
 
 def model_geometry(
@@ -304,7 +326,7 @@ def run_generation(run_number: int, description: str, instruction_prompt: str) -
             instruction_prompt=instruction_prompt,
             text=description,
             image_files=None,
-            llm_backend="ollama",
+            llm_backend=BACKEND,
             llm_name=MODEL,
             llm_params=None,
             max_gen_iterations=MAX_GEN_ITERATIONS,
@@ -467,7 +489,7 @@ def experiment_identity() -> tuple[str, str]:
         experiment = json.loads(experiment_path.read_text(encoding="utf-8"))
         generation = experiment.get("generation", {})
         return generation.get("llm_name", MODEL), generation.get("llm_backend", "unknown")
-    return MODEL, "ollama"
+    return MODEL, BACKEND
 
 
 def write_analysis(records: list[dict[str, Any]]) -> dict[str, Any]:
@@ -854,7 +876,7 @@ def run_live_experiment() -> None:
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     RUNS_DIR.mkdir(parents=True, exist_ok=True)
-    selected = select_ollama_host()
+    selected = select_model_provider()
 
     description = DESCRIPTION_PATH.read_text(encoding="utf-8")
     instruction_prompt = (ROOT / "prompts" / "section_text_generation.md").read_text(encoding="utf-8")
@@ -869,12 +891,12 @@ def run_live_experiment() -> None:
         "geosirr_git_commit": git_value("rev-parse", "HEAD"),
         "geosirr_version": "1.0.1",
         "description_source": description_source,
-        "model_host": selected,
+        "model_provider": selected,
         "generation": {
             "runs": RUN_COUNT,
             "max_gen_iterations": MAX_GEN_ITERATIONS,
             "max_chats": MAX_CHATS,
-            "llm_backend": "ollama",
+            "llm_backend": BACKEND,
             "llm_name": MODEL,
             "llm_params": None,
         },
@@ -913,7 +935,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--model",
         default=DEFAULT_MODEL,
-        help=f"exact Ollama model tag (default: {DEFAULT_MODEL})",
+        help=f"model name (default: {DEFAULT_MODEL})",
+    )
+    parser.add_argument(
+        "--backend",
+        choices=("ollama", "openai"),
+        default=DEFAULT_BACKEND,
+        help=f"LLM backend (default: {DEFAULT_BACKEND})",
     )
     parser.add_argument(
         "--description",
@@ -934,7 +962,7 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
-    configure_experiment(args.model, args.description, args.output_dir)
+    configure_experiment(args.model, args.backend, args.description, args.output_dir)
     try:
         if args.self_test:
             run_self_tests()
