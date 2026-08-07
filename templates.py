@@ -448,7 +448,7 @@ A vertical cross-section showing a **horizontal igneous sill** intruded between 
 - **Thickness:** ~3.6 km
 """,
 
-    "Laccolith": """# Laccolith Intrusion Cross Section
+    "Laccolith Dyke": """# Laccolith Dyke Intrusion Cross Section
 
 ## Section Extent
 * **Horizontal:** 0 km to 40 km
@@ -517,7 +517,7 @@ A West-East cross-section showing an overall **progradation of a delta** with cl
 - **Eastern Thickness:** 0.2 km
 - **Geometry:** Thins from West to East
 """,
-    "Syn-rift half-graben": """# Syn-rift half-graben
+    "Syn-rift Half-graben": """# Syn-rift Half-graben Cross Section
 
 ## Section overview
 
