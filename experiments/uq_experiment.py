@@ -37,6 +37,7 @@ BOUNDARY_TOLERANCE_KM = 1e-6
 MEAN_LINE_SAMPLES = 101
 CONTACT_DENSITY_SIGMA_KM = 0.10
 UQ_FIGURE_NAME = "uq_geometry_variability.png"
+VERTEX_MARKER_SIZE = 20.0
 
 sys.path.insert(0, str(ROOT))
 
@@ -50,10 +51,14 @@ def configure_experiment(
     backend: str,
     description: Path,
     output_dir: Path | None,
+    vertex_size: float,
 ) -> None:
-    global MODEL, BACKEND, DESCRIPTION_PATH, OUTPUT_DIR, RUNS_DIR
+    global MODEL, BACKEND, DESCRIPTION_PATH, OUTPUT_DIR, RUNS_DIR, VERTEX_MARKER_SIZE
+    if vertex_size <= 0:
+        raise ValueError("vertex size must be positive")
     MODEL = model
     BACKEND = backend
+    VERTEX_MARKER_SIZE = vertex_size
     DESCRIPTION_PATH = description.resolve()
     model_slug = model.replace(":", "_").replace("/", "_")
     if output_dir is None:
@@ -657,7 +662,7 @@ def write_analysis(records: list[dict[str, Any]]) -> dict[str, Any]:
                 vertices[:, 0],
                 vertices[:, 1],
                 color=color,
-                s=20,
+                s=VERTEX_MARKER_SIZE,
                 alpha=0.62,
                 label=f"Run {record['run']}",
                 clip_on=False,
@@ -954,6 +959,12 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         help="output directory; defaults to output/uq_<description>_<model>",
     )
+    parser.add_argument(
+        "--vertex-size",
+        type=float,
+        default=VERTEX_MARKER_SIZE,
+        help=f"generated-vertex marker area in points squared (default: {VERTEX_MARKER_SIZE:g})",
+    )
     group = parser.add_mutually_exclusive_group()
     group.add_argument("--self-test", action="store_true", help="run synthetic checks without Ollama")
     group.add_argument("--analyze-only", action="store_true", help="rebuild analysis from saved final outputs")
@@ -962,7 +973,9 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
-    configure_experiment(args.model, args.backend, args.description, args.output_dir)
+    configure_experiment(
+        args.model, args.backend, args.description, args.output_dir, args.vertex_size
+    )
     try:
         if args.self_test:
             run_self_tests()
