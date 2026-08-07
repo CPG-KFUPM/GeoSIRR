@@ -13,7 +13,14 @@ def plot_cross_section(definition: str=None,
                        vertex_label_color: str='gray',
                        title: str='Geological Cross Section',
                        legend_title: str='Bodies',
-                       figsize: tuple=(10, 6)):
+                       figsize: tuple=(10, 6),
+                       padding: float=0.1,
+                       legend_padding: float=0.25,
+                       font_size: float=8,
+                       vertex_font_size: float=None,
+                       line_width: float=1,
+                       vertex_size: float=3,
+                       show: bool=True):
     r"""
     Plot a geological cross-section from vertex and polygon definitions.
 
@@ -40,6 +47,20 @@ def plot_cross_section(definition: str=None,
         Title of the legend. Default is 'Bodies'.
     figsize: : :obj:`tuple`, optional
         Size of the figure to create, specified as a tuple (width, height) in inches. Default is (10, 6).
+    padding : :obj:`float`, optional
+        Fraction of each axis range added around the plotted section. Default is 0.1.
+    legend_padding : :obj:`float`, optional
+        Fraction of the figure width reserved on the right for the legend. Default is 0.25.
+    font_size : :obj:`float`, optional
+        Font size used for the legend. Default is 8.
+    vertex_font_size : :obj:`float`, optional
+        Font size used for vertex labels. If omitted, ``font_size`` is used.
+    line_width : :obj:`float`, optional
+        Width of polygon boundary lines. Default is 1.
+    vertex_size : :obj:`float`, optional
+        Size of vertex markers in points. Default is 3.
+    show : :obj:`bool`, optional
+        Whether to display the figure after creating it. Default is True.
     
     Notes
     -----
@@ -95,6 +116,13 @@ def plot_cross_section(definition: str=None,
     if not polygons:
         raise ValueError("No polygons found in definition.")
 
+    if padding < 0:
+        raise ValueError("padding must be non-negative.")
+    if not 0 <= legend_padding < 1:
+        raise ValueError("legend_padding must be between 0 (inclusive) and 1 (exclusive).")
+
+    vertex_font_size = font_size if vertex_font_size is None else vertex_font_size
+
     # Create figure and axes
     fig, ax = plt.subplots(figsize=figsize)
 
@@ -127,20 +155,22 @@ def plot_cross_section(definition: str=None,
             closed=True,
             facecolor=color_map[base],
             edgecolor='k',
+            linewidth=line_width,
             label=raw_name.replace('^', ' ')
         )
         ax.add_patch(poly)
 
     # Plot vertices
     for vid, (x, y) in vertices.items():
-        ax.plot(x, y, 'o', color='black', markersize=3)
+        ax.plot(x, y, 'o', color='black', markersize=vertex_size)
 
     # Compute and pad axis limits
     xs = np.array([v[0] for v in vertices.values()])
     ys = np.array([v[1] for v in vertices.values()])
-    pad = 0.1 * (xs.max() - xs.min())
-    ax.set_xlim(xs.min() - pad, xs.max() + pad)
-    ax.set_ylim(ys.min() - pad, ys.max() + pad)
+    x_pad = padding * (xs.max() - xs.min())
+    y_pad = padding * (ys.max() - ys.min())
+    ax.set_xlim(xs.min() - x_pad, xs.max() + x_pad)
+    ax.set_ylim(ys.min() - y_pad, ys.max() + y_pad)
     ax.set_aspect('equal')
 
     # Add grid, labels, title, legend
@@ -165,26 +195,28 @@ def plot_cross_section(definition: str=None,
         for vid, (x, y) in vertices.items():
             ax.text(x + x_shift, y - y_shift, str(vid),
                     color=vertex_label_color,
-                    fontsize=8, ha='left', va='bottom')
+                    fontsize=vertex_font_size, ha='left', va='bottom')
             
     # Add legend for polygons
     ax.legend(title=legend_title,
-              loc='center right',
-              bbox_to_anchor=(1.2, 0.5),
-              fontsize='small')
+              loc='center left',
+              bbox_to_anchor=(1.02, 0.5),
+              fontsize=font_size,
+              title_fontsize=font_size)
 
-    plt.tight_layout()
+    fig.tight_layout(rect=(0, 0, 1 - legend_padding, 1))
 
     # Save the figure if a filename is provided (before showing interactively)
     if filename:
         fig.savefig(filename, bbox_inches='tight', dpi=300)
         print(f"Plot saved to {filename}")
 
-    plt.show(block=False)  # Show plot without blocking execution
+    if show:
+        plt.show(block=False)  # Show plot without blocking execution
 
-    # Make sure it renders immediately
-    fig.canvas.draw()        # draw the figure
-    fig.canvas.flush_events()  # push events to the GUI
-    plt.pause(0.001)         # short pause to let the GUI update
+        # Make sure it renders immediately
+        fig.canvas.draw()        # draw the figure
+        fig.canvas.flush_events()  # push events to the GUI
+        plt.pause(0.001)         # short pause to let the GUI update
 
     return fig, ax
