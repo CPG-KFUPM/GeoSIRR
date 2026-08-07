@@ -15,6 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Documentation for Ollama installation, configuration, and troubleshooting in the README.
 - `get_ollama_models()` parses the `ollama.list()` response object, showing locally installed Ollama models.
 - Per-run log files with start/end timestamps, status, and runtime for each generation stage and the complete workflow.
+- A repeated-generation uncertainty-quantification experiment for fixed Markdown geological descriptions.
+- Baseline and constrained listric-fault experiment descriptions for comparing repeated-generation geometry.
+- Saved final DSL outputs, per-run validation and runtime records, and offline regeneration of UQ analysis.
+- Geometry-variability figures that overlay all valid generated vertices and internal contacts, with an internal-contact-density background.
 - `plot_section.py` for creating a PNG directly from a GeoSIRR cross-section text file.
 - `examples/plot_examples.py` for regenerating all valid text examples with shared or per-example settings.
 - Plot CLI controls for titles, model and legend padding, legend gap, line width, vertex size, vertex-label size, legend font size, figure size, and title spacing.
