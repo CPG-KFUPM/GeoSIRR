@@ -28,6 +28,10 @@ def main():
         help="Figure width reserved for the legend (default: 0.25)."
     )
     parser.add_argument(
+        "--legend-gap", type=float, default=0.02,
+        help="Gap between the model and legend as a fraction of model width (default: 0.02)."
+    )
+    parser.add_argument(
         "--font-size", type=float, default=8,
         help="Legend font size in points (default: 8)."
     )
@@ -42,6 +46,10 @@ def main():
     parser.add_argument(
         "--vertex-size", type=float, default=3,
         help="Vertex marker size in points (default: 3)."
+    )
+    parser.add_argument(
+        "--title-padding", type=float, default=12,
+        help="Distance between the title and the model in points (default: 12)."
     )
     parser.add_argument(
         "--figsize", nargs=2, type=float, metavar=("WIDTH", "HEIGHT"),
@@ -60,10 +68,12 @@ def main():
         figsize=tuple(args.figsize),
         padding=args.padding,
         legend_padding=args.legend_padding,
+        legend_gap=args.legend_gap,
         font_size=args.font_size,
         vertex_font_size=args.vertex_font_size,
         line_width=args.line_width,
         vertex_size=args.vertex_size,
+        title_padding=args.title_padding,
         show=False,
     )
 

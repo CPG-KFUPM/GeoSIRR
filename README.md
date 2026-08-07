@@ -265,11 +265,20 @@ To create a PNG from an existing GeoSIRR text definition without starting the in
 ```bash
 python plot_section.py examples/example_syn-rift_half-graben.txt \
   --title "Syn-rift half-graben" \
-  --padding 0.2 --legend-padding 0.35 --font-size 6 \
-  --vertex-font-size 5 --line-width 0.7 --vertex-size 2 --figsize 12 7
+  --padding 0.2 --legend-padding 0.35 --legend-gap 0.05 --font-size 6 \
+  --vertex-font-size 5 --line-width 0.7 --vertex-size 2 \
+  --title-padding 12 --figsize 12 7
 ```
 
-This writes `examples/example_syn-rift_half-graben.png` by default. `--padding` controls the white area around the model boundaries, while `--legend-padding` reserves a fraction of the figure width to the right of the section so a large legend does not cover the model. `--line-width`, `--vertex-size`, and `--vertex-font-size` control polygon boundaries, vertex dots, and vertex labels respectively. Use a smaller `--font-size` or a larger `--legend-padding` for detailed sections. Set an explicit output path with `--output path/to/section.png`.
+This writes `examples/example_syn-rift_half-graben.png` by default. `--padding` controls the white area around the model boundaries, while `--legend-padding` reserves a fraction of the figure width to the right of the section. `--legend-gap` controls the horizontal gap directly between the model and legend. `--line-width`, `--vertex-size`, and `--vertex-font-size` control polygon boundaries, vertex dots, and vertex labels respectively; `--title-padding` controls the title-to-model distance. Use a smaller `--font-size` or a larger `--legend-padding` for detailed sections. Set an explicit output path with `--output path/to/section.png`.
+
+To regenerate every valid text example at once, run:
+
+```bash
+python examples/plot_examples.py
+```
+
+Edit `DEFAULT_OPTIONS` in `examples/plot_examples.py` to change shared settings, or `PLOT_OPTIONS` to override settings for an individual example. Files that are not GeoSIRR cross-section definitions are skipped.
 
 DSL definitions can be found in the main prompt in file [`prompts/section_text_generation.md`](prompts/section_text_generation.md).
 

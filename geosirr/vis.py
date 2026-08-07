@@ -16,10 +16,12 @@ def plot_cross_section(definition: str=None,
                        figsize: tuple=(10, 6),
                        padding: float=0.1,
                        legend_padding: float=0.25,
+                       legend_gap: float=0.03,
                        font_size: float=8,
                        vertex_font_size: float=None,
                        line_width: float=1,
                        vertex_size: float=3,
+                       title_padding: float=12,
                        show: bool=True):
     r"""
     Plot a geological cross-section from vertex and polygon definitions.
@@ -51,6 +53,8 @@ def plot_cross_section(definition: str=None,
         Fraction of each axis range added around the plotted section. Default is 0.1.
     legend_padding : :obj:`float`, optional
         Fraction of the figure width reserved on the right for the legend. Default is 0.25.
+    legend_gap : :obj:`float`, optional
+        Horizontal gap between the model axes and legend, as a fraction of the axes width. Default is 0.02.
     font_size : :obj:`float`, optional
         Font size used for the legend. Default is 8.
     vertex_font_size : :obj:`float`, optional
@@ -59,6 +63,8 @@ def plot_cross_section(definition: str=None,
         Width of polygon boundary lines. Default is 1.
     vertex_size : :obj:`float`, optional
         Size of vertex markers in points. Default is 3.
+    title_padding : :obj:`float`, optional
+        Distance between the title and the axes in points. Default is 12.
     show : :obj:`bool`, optional
         Whether to display the figure after creating it. Default is True.
     
@@ -120,6 +126,8 @@ def plot_cross_section(definition: str=None,
         raise ValueError("padding must be non-negative.")
     if not 0 <= legend_padding < 1:
         raise ValueError("legend_padding must be between 0 (inclusive) and 1 (exclusive).")
+    if legend_gap < 0:
+        raise ValueError("legend_gap must be non-negative.")
 
     vertex_font_size = font_size if vertex_font_size is None else vertex_font_size
 
@@ -162,7 +170,8 @@ def plot_cross_section(definition: str=None,
 
     # Plot vertices
     for vid, (x, y) in vertices.items():
-        ax.plot(x, y, 'o', color='black', markersize=vertex_size)
+        ax.plot(x, y, 'o', color='black', markersize=vertex_size,
+                clip_on=False, zorder=3)
 
     # Compute and pad axis limits
     xs = np.array([v[0] for v in vertices.values()])
@@ -177,7 +186,7 @@ def plot_cross_section(definition: str=None,
     ax.grid(True, linestyle='--', alpha=0.5)
     ax.set_xlabel('Distance (km)')
     ax.set_ylabel('Depth (km)')
-    ax.set_title(title)
+    ax.set_title(title, pad=title_padding)
 
     # Reverse the y-axis to have depth increase downwards
     ax.set_ylim(ax.get_ylim()[::-1])
@@ -200,7 +209,7 @@ def plot_cross_section(definition: str=None,
     # Add legend for polygons
     ax.legend(title=legend_title,
               loc='center left',
-              bbox_to_anchor=(1.02, 0.5),
+              bbox_to_anchor=(1 + legend_gap, 0.5),
               fontsize=font_size,
               title_fontsize=font_size)
 
