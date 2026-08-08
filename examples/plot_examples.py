@@ -25,17 +25,21 @@ DEFAULT_OPTIONS = {
 
 # Add or change options here to customize an individual example.
 PLOT_OPTIONS = {
-    "example_laccolith_dyke_2.txt": {"title": "Laccolith and dyke"},
-    "example_listric_normal_fault.txt": {"title": "Listric normal fault"},
-    "example_listric_normal_fault_2.txt": {"title": "Listric normal fault 2"},
+    "example_single_layer.txt": {"title": "Simple cross section with a single layer"},
+    "example_two_layers.txt": {"title": "Two Horizontal Layers"},
+    "example_salt_diapir.txt": {"title": "Salt Diapir"},
+    "example_listric_normal_fault.txt": {"title": "Listric Normal Fault"},
+    "example_listric_normal_fault_2.txt": {"title": "Listric Normal Fault (repeated)"},
     "example_listric_normal_fault_2_refined.txt": {
-        "title": "Refined listric normal fault"
+        "title": "Refined Listric Normal Fault: Rollover Added", "vertex_font_size": 6, "vertex_size": 2
     },
     "example_listric_normal_fault_2_refined_2.txt": {
-        "title": "Refined listric normal fault 2", "vertex_font_size": 6, "vertex_size": 2
+        "title": "Refined Listric Normal Fault: Second Fault Added", "vertex_font_size": 6, "vertex_size": 2
     },
-    "example_prograding_delta.txt": {"title": "Prograding delta", "vertex_font_size": 6, "vertex_size": 2, "legend_padding": 0.2},
-    "example_syn-rift_half-graben.txt": {"title": "Syn-rift half-graben", "legend_padding": 0.1, "font_size": 6, "vertex_font_size": 5, "line_width": 0.7, "vertex_size": 2},
+    "example_laccolith_dyke.txt": {"title": "Laccolith Dyke Intrusion", "vertex_font_size": 6, "vertex_size": 2},
+        "example_laccolith_dyke_2.txt": {"title": "Laccolith Dyke Intrusion (repeated)", "vertex_font_size": 6, "vertex_size": 2},
+    "example_prograding_delta.txt": {"title": "Prograding Delta", "vertex_font_size": 6, "vertex_size": 2, "legend_padding": 0.2},
+    "example_syn-rift_half-graben.txt": {"title": "Syn-rift Half-graben", "legend_padding": 0.1, "font_size": 6, "vertex_font_size": 5, "line_width": 0.7, "vertex_size": 2},
 }
 
 

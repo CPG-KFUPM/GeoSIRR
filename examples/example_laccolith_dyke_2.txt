@@ -1,42 +1,3 @@
-# Geological Cross-Section
-# Generated: 2025-11-18_16-01-46
-# Model: gpt-5
-# Original Description: # Laccolith Intrusion Cross Section
-
-## Section Extent
-* **Horizontal:** 0 km to 40 km
-* **Vertical:** 0 km (surface) to 8 km (depth)
-
-## Geological Features
-
-### Feeder Dyke
-- **Width:** 0.8 km
-- **Dip:** 75° east
-- **Location:** Bottom at x=19 km (depth 8 km), top at x=22 km (depth 5 km)
-- **Lithology:** Basalt
-
-### Laccolith Sill
-- **Type:** Lens-shaped intrusion at top of shale layer (5 km depth)
-- **Peak:** x=22 km, thickness 1.2 km
-- **West side:** Gradual taper from x=15 km to x=22 km
-- **East side:** Steeper taper from x=22 km to x=26 km
-- **Edges:** Taper smoothly to zero thickness
-- **Top:** Smooth dome shape
-- **Lithology:** Diorite
-
-### Layer Deformation
-- Layers 1 and 2 bend upward over laccolith, maintaining constant 2 km thickness
-- Maximum uplift ~1.2 km at x=22 km
-- Layers return to flat beyond x=15 km (west) and x=26 km (east)
-
-## Stratigraphic Layers
-- **Layer 1 (Sandstone):** 2 km thick, deformed over laccolith
-- **Layer 2 (Limestone):** 2 km thick, deformed over laccolith
-- **Layer 3 (Shale):** 2.5 km thick, laccolith intrudes at top
-- **Layer 4 (Basement):** 2.5 km thick, flat
-
-# ==================================================
-
 0 0.0 0.0 # top left corner of the cross section
 1 40.0 0.0 # top right corner of the cross section
 2 40.0 -8.0 # bottom right corner of the cross section
@@ -48,7 +9,7 @@
 6 17.0 -1.6
 7 19.0 -1.2
 8 21.0 -0.9
-9 22.0 -0.8 # maximum uplift of L2 top (≈1.2 km uplift from -2.0 to -0.8) at x=22
+9 22.0 -0.8 # maximum uplift of L2 top (~1.2 km uplift from -2.0 to -0.8) at x=22
 10 23.0 -1.2
 11 24.0 -1.6
 12 26.0 -2.0
@@ -90,7 +51,7 @@ sandstone 0 1 13 12 11 10 9 8 7 6 5 4
 # Layer 2 (Limestone): top-of-L2 dome down to base-of-L2 (which equals laccolith top inside [15,26] and flat -4 outside)
 limestone 4 5 6 7 8 9 10 11 12 13 24 23 22 21 20 19 18 17 16 15 14
 
-# Laccolith sill (Diorite): flat base at -4 (x=15→26, split by dyke top at 27–28), domed top peaking at -2.8 at x=22
+# Laccolith sill (Diorite): flat base at -4 (x=15 to 26, split by dyke top at 27-28), domed top peaking at -2.8 at x=22
 laccolith 15 27 28 23 22 21 20 19 18 17 16
 
 # Shale (Layer 3) split into left and right parts by the feeder dyke; both sit between -4 and -6.5
