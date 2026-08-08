@@ -288,10 +288,11 @@ The experiment runner [`experiments/uq_experiment.py`](experiments/uq_experiment
 
 The analysis reruns both GeoSIRR validators on every final output, reports generation statistics, and overlays every declared vertex from each valid model. Different descriptions can be supplied with `--description`.
 
-Two descriptions are provided:
+Three descriptions are provided:
 
 - [`experiments/listric_fault_baseline.md`](experiments/listric_fault_baseline.md) reproduces the original template description.
 - [`experiments/listric_fault_constrained.md`](experiments/listric_fault_constrained.md) fixes the fault endpoint at $(x,z)=(16,-5)$ km and reinforces the six-segment construction to test whether a more specific prompt reduces generated variability.
+- [`experiments/synrift_half_graben.md`](experiments/synrift_half_graben.md) defines a complex syn-rift half-graben with interacting listric and antithetic faults, a rollover, growth strata, an angular unconformity, and post-rift drape units.
 
 With the `geosirr` environment activated, run the baseline experiment with the defaults:
 
