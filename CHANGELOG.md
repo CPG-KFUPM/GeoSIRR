@@ -24,7 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `examples/plot_examples.py` for regenerating all valid text examples with shared or per-example settings.
 - Plot CLI controls for titles, model and legend padding, legend gap, line width, vertex size, vertex-label size, legend font size, figure size, and title spacing.
 - Non-interactive template execution with `--template`, `--backend`, and `--model` command-line options.
-- A `Domino-style Listric Rift` template with six linked listric normal faults, two right-side antithetic faults, tilted-block topography, and an air layer.
+- A `Domino-style Listric Rift` template with six linked listric normal faults, two right-side antithetic faults, tilted-block topography, local wedge-shaped syn-rift basin fill, and an air layer.
 
 ### Changed
 
