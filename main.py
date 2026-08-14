@@ -1,3 +1,4 @@
+import argparse
 import os
 import sys
 import time
@@ -283,7 +284,15 @@ def select_template():
         except ValueError:
             print("Please enter a number.")
 
-def process_description(description, api_key, llm_backend, model_name, last_refinement=None, last_result=None):
+def process_description(
+    description,
+    api_key,
+    llm_backend,
+    model_name,
+    last_refinement=None,
+    last_result=None,
+    interactive=True,
+):
     """
     Process the description: Clarify -> Generate -> Validate -> Plot
     """
@@ -321,11 +330,14 @@ def process_description(description, api_key, llm_backend, model_name, last_refi
         if validation.get('clarification_question'):
             print(f"\nClarification needed: {validation.get('clarification_question')}")
             
-        proceed = input("\nDo you want to proceed anyway? (y/n): ").strip().lower()
-        if proceed != 'y':
-            print("Operation cancelled. Please refine your description.")
-            run_log.finish("cancelled")
-            return
+        if interactive:
+            proceed = input("\nDo you want to proceed anyway? (y/n): ").strip().lower()
+            if proceed != 'y':
+                print("Operation cancelled. Please refine your description.")
+                run_log.finish("cancelled")
+                return
+        else:
+            print("Non-interactive mode: proceeding with the supplied description.")
 
     print("\n--- Generating Cross Section ---")
     print("This may take a minute...")
@@ -425,10 +437,11 @@ def process_description(description, api_key, llm_backend, model_name, last_refi
         plot_ready = False
         with run_log.stage("plot_rendering") as stage:
             try:
-                gs.vis.plot_cross_section(
+                fig, _ = gs.vis.plot_cross_section(
                     definition=text_result,
                     title=f"Generated Section - {gen_timestamp}",
-                    filename=os.path.join(OUTPUT_DIR, f"section_{gen_timestamp}.png")
+                    filename=os.path.join(OUTPUT_DIR, f"section_{gen_timestamp}.png"),
+                    show=interactive,
                 )
                 plot_ready = True
             except Exception as e:
@@ -437,6 +450,11 @@ def process_description(description, api_key, llm_backend, model_name, last_refi
                 print(f"Error plotting: {e}")
 
         run_log.finish("success")
+
+        if not interactive:
+            if plot_ready:
+                plt.close(fig)
+            return
 
         if plot_ready:
             print("Plot window opening...")
@@ -494,8 +512,33 @@ def process_description(description, api_key, llm_backend, model_name, last_refi
         traceback.print_exc()
 
 
+def parse_args():
+    parser = argparse.ArgumentParser(description="Generate geological cross-sections with GeoSIRR.")
+    parser.add_argument(
+        "--template",
+        choices=templates.TEMPLATES,
+        help="Run one named template without interactive menus.",
+    )
+    parser.add_argument("--backend", choices=("openai", "ollama"), default="openai")
+    parser.add_argument("--model", default="gpt-5.6")
+    return parser.parse_args()
+
+
 def main():
+    args = parse_args()
     ensure_directories()
+
+    if args.template:
+        api_key = setup_backend(args.backend)
+        process_description(
+            templates.TEMPLATES[args.template],
+            api_key,
+            args.backend,
+            args.model,
+            interactive=False,
+        )
+        return
+
     clear_screen()
     print_header()
     

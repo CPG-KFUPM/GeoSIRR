@@ -23,6 +23,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `plot_section.py` for creating a PNG directly from a GeoSIRR cross-section text file.
 - `examples/plot_examples.py` for regenerating all valid text examples with shared or per-example settings.
 - Plot CLI controls for titles, model and legend padding, legend gap, line width, vertex size, vertex-label size, legend font size, figure size, and title spacing.
+- Non-interactive template execution with `--template`, `--backend`, and `--model` command-line options.
+- A `Domino-style Listric Rift` template with six linked listric normal faults, two right-side antithetic faults, tilted-block topography, and an air layer.
 
 ### Changed
 

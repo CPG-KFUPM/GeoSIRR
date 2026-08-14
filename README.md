@@ -199,6 +199,19 @@ From the repository root, activate the environment you created during installati
 python main.py
 ```
 
+### Run an Example Non-Interactively
+
+Run a named template without the provider, model, template, refinement, or plot-window prompts. For example, generate the Domino-style Listric Rift with GPT-5.6:
+
+```bash
+python main.py \
+  --template "Domino-style Listric Rift" \
+  --backend openai \
+  --model gpt-5.6
+```
+
+The command validates the template description, generates and validates the cross-section, saves the DSL text and PNG plot in `output/`, and then exits. `--backend` accepts `openai` or `ollama`; omit `--model` to use `gpt-5.6`.
+
 ### Select LLM Provider and Model
 
 Upon startup, you will be prompted to select an LLM provider:
