@@ -306,6 +306,7 @@ Three descriptions are provided:
 - [`experiments/listric_fault_baseline.md`](experiments/listric_fault_baseline.md) reproduces the original template description.
 - [`experiments/listric_fault_constrained.md`](experiments/listric_fault_constrained.md) fixes the fault endpoint at $(x,z)=(16,-5)$ km and reinforces the six-segment construction to test whether a more specific prompt reduces generated variability.
 - [`experiments/synrift_half_graben.md`](experiments/synrift_half_graben.md) defines a complex syn-rift half-graben with interacting listric and antithetic faults, a rollover, growth strata, an angular unconformity, and post-rift drape units.
+- [`experiments/domino_listric_rift.md`](experiments/domino_listric_rift.md) defines a domino-style listric rift with six linked east-dipping normal faults, two antithetic faults, and local syn-rift basin-fill wedges.
 
 With the `geosirr` environment activated, run the baseline experiment with the defaults:
 
@@ -318,6 +319,13 @@ Run the constrained-description experiment separately:
 ```bash
 python experiments/uq_experiment.py \
   --description experiments/listric_fault_constrained.md
+```
+
+Run the domino-style listric-rift experiment separately:
+
+```bash
+python experiments/uq_experiment.py \
+  --description experiments/domino_listric_rift.md
 ```
 
 Override the model when required, e.g.:
