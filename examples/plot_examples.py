@@ -39,6 +39,7 @@ PLOT_OPTIONS = {
     "example_laccolith_dyke.txt": {"title": "Laccolith Dyke Intrusion", "vertex_font_size": 6, "vertex_size": 2},
         "example_laccolith_dyke_2.txt": {"title": "Laccolith Dyke Intrusion (repeated)", "vertex_font_size": 6, "vertex_size": 2},
     "example_prograding_delta.txt": {"title": "Prograding Delta", "vertex_font_size": 6, "vertex_size": 2, "legend_padding": 0.2},
+    "example_domino_listric_rift.txt": {"title": "Domino-style Listric Rift", "legend_padding": 0.1, "font_size": 6, "vertex_font_size": 5, "line_width": 0.7, "vertex_size": 2},
     "example_syn-rift_half-graben.txt": {"title": "Syn-rift Half-graben", "legend_padding": 0.1, "font_size": 6, "vertex_font_size": 5, "line_width": 0.7, "vertex_size": 2},
 }
 

@@ -38,6 +38,7 @@ MEAN_LINE_SAMPLES = 101
 CONTACT_DENSITY_SIGMA_KM = 0.10
 UQ_FIGURE_NAME = "uq_geometry_variability.png"
 VERTEX_MARKER_SIZE = 20.0
+LEGEND_Y = -0.20
 
 sys.path.insert(0, str(ROOT))
 
@@ -52,13 +53,15 @@ def configure_experiment(
     description: Path,
     output_dir: Path | None,
     vertex_size: float,
+    legend_y: float,
 ) -> None:
-    global MODEL, BACKEND, DESCRIPTION_PATH, OUTPUT_DIR, RUNS_DIR, VERTEX_MARKER_SIZE
+    global MODEL, BACKEND, DESCRIPTION_PATH, OUTPUT_DIR, RUNS_DIR, VERTEX_MARKER_SIZE, LEGEND_Y
     if vertex_size <= 0:
         raise ValueError("vertex size must be positive")
     MODEL = model
     BACKEND = backend
     VERTEX_MARKER_SIZE = vertex_size
+    LEGEND_Y = legend_y
     DESCRIPTION_PATH = description.resolve()
     model_slug = model.replace(":", "_").replace("/", "_")
     if output_dir is None:
@@ -716,12 +719,15 @@ def write_analysis(records: list[dict[str, Any]]) -> dict[str, Any]:
         ax.yaxis.set_major_formatter(
             FuncFormatter(lambda z_value, _: f"{0 if abs(z_value) < 1e-12 else -z_value:g}")
         )
-        ax.set_title("Generated model vertices, internal-contact density, and mean interior path")
+        title = "Generated model vertices and internal-contact density"
+        if mean_path is not None:
+            title += ", with mean interior path"
+        ax.set_title(title)
         ax.set_aspect("equal", adjustable="box")
         ax.grid(color="0.75", linestyle="--", linewidth=0.5)
         legend = ax.legend(
             loc="upper center",
-            bbox_to_anchor=(0.5, -0.20),
+            bbox_to_anchor=(0.5, LEGEND_Y),
             ncols=6,
             fontsize=7,
             title=f"Model: {model}\nBackend: {backend}",
@@ -965,6 +971,12 @@ def parse_args() -> argparse.Namespace:
         default=VERTEX_MARKER_SIZE,
         help=f"generated-vertex marker area in points squared (default: {VERTEX_MARKER_SIZE:g})",
     )
+    parser.add_argument(
+        "--legend-y",
+        type=float,
+        default=LEGEND_Y,
+        help=f"vertical legend anchor in axes coordinates (default: {LEGEND_Y:g})",
+    )
     group = parser.add_mutually_exclusive_group()
     group.add_argument("--self-test", action="store_true", help="run synthetic checks without Ollama")
     group.add_argument("--analyze-only", action="store_true", help="rebuild analysis from saved final outputs")
@@ -974,7 +986,7 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     configure_experiment(
-        args.model, args.backend, args.description, args.output_dir, args.vertex_size
+        args.model, args.backend, args.description, args.output_dir, args.vertex_size, args.legend_y
     )
     try:
         if args.self_test:

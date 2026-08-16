@@ -351,7 +351,7 @@ python experiments/uq_experiment.py \
 Use `--output-dir` when reading or writing a non-default directory. Existing per-run records in that directory are retained and skipped, allowing an interrupted experiment to resume.
 
 The analysis writes `uq_geometry_variability.png`, which overlays the final generated vertices and internal contacts from all valid runs.
-Use `--vertex-size` to change the generated-vertex marker area in that figure; the default is `20` points squared.
+Use `--vertex-size` to change the generated-vertex marker area in that figure; the default is `20` points squared. Use `--legend-y` to move the legend vertically; its default anchor is `-0.20`.
 
 The reported generation success rate is
 
