@@ -521,7 +521,7 @@ A West-East cross-section showing an overall **progradation of a delta** with cl
 
 ## Section overview
 
-Create a simplified vertical cross-section of an asymmetric extensional rift like a Basin-and-Range tilted-block system. It must contain one master listric normal fault, five synthetic listric normal-fault splays, and two antithetic normal faults. The six east-dipping listric faults form a linked fault fan above the master detachment. The fault-bounded upper-plate blocks are rotated, producing a repeated sawtooth surface of ranges and half-graben basins. The two antithetic faults occur only in the broad basin on the right.
+A simplified vertical cross-section of an asymmetric extensional rift like a Basin-and-Range tilted-block system. It must contain one master listric normal fault, five synthetic listric normal-fault splays, and two antithetic normal faults. The six east-dipping listric faults form a linked fault fan above the master detachment. The fault-bounded upper-plate blocks are rotated, producing a repeated sawtooth surface of ranges and half-graben basins. The two antithetic faults occur only in the broad basin on the right.
 
 This is a structural-block diagram containing crystalline basement, local syn-rift sedimentary basin fill, and air. Do not add water, a regional sedimentary cover, an unconformity, labels, arrows, or text inscriptions. All basement pieces must use the same base name so that they receive the same automatic color. All sediment wedges must likewise share one base name. The faults are visible as shared black polygon boundaries.
 
