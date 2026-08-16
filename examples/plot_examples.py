@@ -1,5 +1,6 @@
 """Plot every valid GeoSIRR text example with editable per-example settings."""
 
+import argparse
 import sys
 from pathlib import Path
 
@@ -44,10 +45,24 @@ PLOT_OPTIONS = {
 }
 
 
-def main():
-    examples_dir = Path(__file__).resolve().parent
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--file",
+        type=Path,
+        help="plot only this GeoSIRR text definition instead of all examples",
+    )
+    return parser.parse_args()
 
-    for input_path in sorted(examples_dir.glob("example_*.txt")):
+
+def main():
+    args = parse_args()
+    examples_dir = Path(__file__).resolve().parent
+    input_paths = [args.file] if args.file else sorted(examples_dir.glob("example_*.txt"))
+
+    for input_path in input_paths:
+        if not input_path.is_file():
+            raise FileNotFoundError(f"Example file not found: {input_path}")
         is_valid, _ = io.validate_cross_section_format(input_path.read_text())
         if not is_valid:
             print(f"Skipping {input_path.name}: not a GeoSIRR cross-section definition.")

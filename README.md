@@ -291,6 +291,12 @@ To regenerate every valid text example at once, run:
 python examples/plot_examples.py
 ```
 
+To regenerate one example only, pass its text definition with `--file`:
+
+```bash
+python examples/plot_examples.py --file examples/example_domino_listric_rift.txt
+```
+
 Edit `DEFAULT_OPTIONS` in `examples/plot_examples.py` to change shared settings, or `PLOT_OPTIONS` to override settings for an individual example. Files that are not GeoSIRR cross-section definitions are skipped.
 
 DSL definitions can be found in the main prompt in file [`prompts/section_text_generation.md`](prompts/section_text_generation.md).
