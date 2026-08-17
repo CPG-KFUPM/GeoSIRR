@@ -22,6 +22,10 @@ PROMPTS_DIR = os.path.join("prompts")
 SECTION_PROMPT_FILE = os.path.join(PROMPTS_DIR, "section_text_generation.md")
 
 
+def _generation_attempts(chats):
+    return sum(max(0, (len(chat) - 1) // 2) for chat in chats)
+
+
 class _RunLogger:
     """Record stage and total runtimes for one generation workflow."""
 
@@ -32,6 +36,8 @@ class _RunLogger:
         self.started_at = datetime.now().astimezone()
         self.started_clock = time.perf_counter()
         self.stages = []
+        self.attempts = 0
+        self.r_gen = 0.0
         self.finished = False
 
     @contextmanager
@@ -54,6 +60,10 @@ class _RunLogger:
             self.stages.append(record)
             print(f"{name.replace('_', ' ').title()} runtime: {record['runtime_seconds']:.2f} s")
 
+    def set_generation_result(self, attempts, valid):
+        self.attempts = attempts
+        self.r_gen = 1.0 / attempts if valid and attempts > 0 else 0.0
+
     def finish(self, status):
         if self.finished:
             return
@@ -71,6 +81,8 @@ class _RunLogger:
             f"start_time: {self.started_at.isoformat(timespec='seconds')}",
             f"end_time: {ended_at.isoformat(timespec='seconds')}",
             f"runtime_seconds: {runtime:.6f}",
+            f"attempts: {self.attempts}",
+            f"R_gen: {self.r_gen:.6f}",
             "stages:",
         ]
         for stage in self.stages:
@@ -368,7 +380,7 @@ def process_description(
     # Generate section
     try:
         with run_log.stage("cross_section_generation"):
-            success, text_result, full_prompt, _ = gs.llm.generate_section_text(
+            success, text_result, full_prompt, chats = gs.llm.generate_section_text(
                 instruction_prompt=system_prompt,
                 text=description,
                 image_files=None,
@@ -381,6 +393,8 @@ def process_description(
                 section_preview=False,
                 verbose=True
             )
+            attempts = _generation_attempts(chats)
+            run_log.set_generation_result(attempts, valid=False)
         
         if not success:
             print("\nGeneration failed.")
@@ -396,6 +410,7 @@ def process_description(
                 print(f"Full prompt saved to: {prompt_filepath}")
 
         print("\n--- Validating Result ---")
+        is_valid_topology = False
         with run_log.stage("result_validation") as stage:
             is_valid_format, format_errors = gs.io.validate_cross_section_format(text_result)
 
@@ -419,6 +434,7 @@ def process_description(
                 else:
                     print("Topology Validation: PASSED")
 
+        run_log.set_generation_result(attempts, is_valid_format and is_valid_topology)
         if not is_valid_format:
             run_log.finish("validation_failed")
             return

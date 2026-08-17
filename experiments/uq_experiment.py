@@ -500,6 +500,13 @@ def experiment_identity() -> tuple[str, str]:
     return MODEL, BACKEND
 
 
+def individual_generation_rate(record: dict[str, Any]) -> float:
+    attempts = int(record.get("attempts", 0))
+    if attempts <= 0 or not record.get("geosirr_valid"):
+        return 0.0
+    return 1.0 / attempts
+
+
 def write_analysis(records: list[dict[str, Any]]) -> dict[str, Any]:
     import matplotlib.pyplot as plt
     import numpy as np
@@ -508,6 +515,7 @@ def write_analysis(records: list[dict[str, Any]]) -> dict[str, Any]:
     valid = [record for record in records if record.get("geosirr_valid")]
     model, backend = experiment_identity()
     attempts = [float(record.get("attempts", 0)) for record in records]
+    individual_r_gen = [individual_generation_rate(record) for record in records]
     times = [float(record.get("generation_time_seconds", 0.0)) for record in records]
     vertex_counts = [float(record["vertex_count"]) for record in valid]
     polygon_counts = [float(record["polygon_count"]) for record in valid]
@@ -515,6 +523,7 @@ def write_analysis(records: list[dict[str, Any]]) -> dict[str, Any]:
         "attempted": RUN_COUNT,
         "valid": len(valid),
         "R_gen": len(valid) / RUN_COUNT,
+        "R_gen_mean": statistics.fmean(individual_r_gen),
         "attempts_mean": statistics.fmean(attempts),
         "attempts_min": min(attempts),
         "attempts_max": max(attempts),
@@ -577,6 +586,7 @@ def write_analysis(records: list[dict[str, Any]]) -> dict[str, Any]:
         f"- Backend: `{backend}`",
         f"- Attempted runs: {RUN_COUNT}",
         f"- Independently valid GeoSIRR generations: {len(valid)}",
+        f"- Mean individual-run generation success rate: $\\overline{{R}}_{{\\mathrm{{gen}}}}={statistics_result['R_gen_mean']:.3f}$",
         f"- Generation success rate: $R_{{\\mathrm{{gen}}}}={statistics_result['R_gen']:.3f}$",
         f"- Generation attempts: mean {statistics.fmean(attempts):.2f}, range {range_text(attempts, 0)}",
         f"- Generation time: mean {statistics.fmean(times):.1f} s, range {range_text(times, 1)} s",
@@ -586,6 +596,15 @@ def write_analysis(records: list[dict[str, Any]]) -> dict[str, Any]:
         "$$",
         "R_{\\mathrm{gen}}=\\frac{N_{\\mathrm{valid}}}{N_{\\mathrm{attempted}}}.",
         "$$",
+        "",
+        "For individual run $r$, the generation success rate accounts for retries:",
+        "",
+        "$$",
+        "R_{\\mathrm{gen},r}=\\frac{I_{\\mathrm{valid},r}}{A_r}, \\qquad "
+        "\\overline{R}_{\\mathrm{gen}}=\\frac{1}{N}\\sum_{r=1}^{N}R_{\\mathrm{gen},r},",
+        "$$",
+        "",
+        "where $I_{\\mathrm{valid},r}$ is 1 for a valid final definition and 0 otherwise, and $A_r$ is the number of attempts in that run.",
         "",
         "## Geometry overlay",
         "",
@@ -845,7 +864,7 @@ def run_self_tests() -> None:
                     "polygon_count": 2,
                     "model_vertices": geometries[0][0],
                     "internal_contacts": geometries[0][1],
-                    "attempts": 1,
+                    "attempts": 4,
                     "generation_time_seconds": 1.0,
                 }
             ]
@@ -860,7 +879,7 @@ def run_self_tests() -> None:
                     "polygon_count": None,
                     "model_vertices": None,
                     "internal_contacts": None,
-                    "attempts": 0,
+                    "attempts": 2 if run == 2 else 0,
                     "generation_time_seconds": 0.0,
                 }
                 for run in range(2, RUN_COUNT + 1)
@@ -869,10 +888,17 @@ def run_self_tests() -> None:
             result = write_analysis(records)
             assert result["valid"] == 1
             assert result["R_gen"] == 0.1
+            assert result["R_gen_mean"] == 0.025
             assert result["boundaries_consistent"]
             assert result["mean_interior_path_available"]
             assert (OUTPUT_DIR / UQ_FIGURE_NAME).is_file()
             assert (OUTPUT_DIR / "mean_interior_path.csv").is_file()
+            assert '"R_gen_mean": 0.025' in (OUTPUT_DIR / "statistics.json").read_text(
+                encoding="utf-8"
+            )
+            assert "Mean individual-run generation success rate" in (
+                OUTPUT_DIR / "summary.md"
+            ).read_text(encoding="utf-8")
             assert not (OUTPUT_DIR / "vertex_uncertainty.csv").exists()
     finally:
         OUTPUT_DIR = previous_output_dir
