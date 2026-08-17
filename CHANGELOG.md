@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Automatic Ollama server health check and local model discovery.
 - Documentation for Ollama installation, configuration, and troubleshooting in the README.
 - `get_ollama_models()` parses the `ollama.list()` response object, showing locally installed Ollama models.
-- Per-run log files with start/end timestamps, status, generation-attempt count, individual `R_gen`, and runtime for each generation stage and the complete workflow.
+- Timestamped per-run output directories containing the description, full prompt, generated section, plot, and a log with start/end timestamps, status, generation-attempt count, individual `R_gen`, and runtime for each generation stage and the complete workflow.
 - A repeated-generation uncertainty-quantification experiment for fixed Markdown geological descriptions.
 - Ollama and OpenAI backend selection for the repeated-generation uncertainty-quantification experiment.
 - Baseline and constrained listric-fault experiment descriptions for comparing repeated-generation geometry.

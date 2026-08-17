@@ -29,8 +29,8 @@ def _generation_attempts(chats):
 class _RunLogger:
     """Record stage and total runtimes for one generation workflow."""
 
-    def __init__(self, timestamp, backend, model_name):
-        self.path = os.path.join(OUTPUT_DIR, f"run_{timestamp}.log")
+    def __init__(self, run_dir, backend, model_name):
+        self.path = os.path.join(run_dir, "run.log")
         self.backend = backend
         self.model_name = model_name
         self.started_at = datetime.now().astimezone()
@@ -309,7 +309,9 @@ def process_description(
     Process the description: Clarify -> Generate -> Validate -> Plot
     """
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    run_log = _RunLogger(timestamp, llm_backend, model_name)
+    run_dir = os.path.join(OUTPUT_DIR, f"run_{timestamp}")
+    os.makedirs(run_dir, exist_ok=True)
+    run_log = _RunLogger(run_dir, llm_backend, model_name)
 
     if llm_backend == "openai" and api_key:
         os.environ["OPENAI_API_KEY"] = api_key
@@ -367,8 +369,7 @@ def process_description(
     # Save original description for reference
     with run_log.stage("description_saving") as stage:
         try:
-            description_filename = f"description_{timestamp}.md"
-            description_filepath = os.path.join(OUTPUT_DIR, description_filename)
+            description_filepath = os.path.join(run_dir, "description.md")
             with open(description_filepath, "w", encoding="utf-8") as f:
                 f.write(description)
             print(f"User description saved to: {description_filepath}")
@@ -403,8 +404,7 @@ def process_description(
         else:
             # Save full prompt for reference
             with run_log.stage("prompt_saving"):
-                prompt_filename = f"full_prompt_{timestamp}.md"
-                prompt_filepath = os.path.join(OUTPUT_DIR, prompt_filename)
+                prompt_filepath = os.path.join(run_dir, "full_prompt.md")
                 with open(prompt_filepath, "w", encoding="utf-8") as f:
                     f.write(full_prompt)
                 print(f"Full prompt saved to: {prompt_filepath}")
@@ -440,10 +440,8 @@ def process_description(
             return
 
         # Save result
-        gen_timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         with run_log.stage("result_saving"):
-            filename = f"section_{gen_timestamp}.txt"
-            filepath = os.path.join(OUTPUT_DIR, filename)
+            filepath = os.path.join(run_dir, "section.txt")
             with open(filepath, "w", encoding="utf-8") as f:
                 f.write(text_result)
             print(f"\nResult saved to: {filepath}")
@@ -455,8 +453,8 @@ def process_description(
             try:
                 fig, _ = gs.vis.plot_cross_section(
                     definition=text_result,
-                    title=f"Generated Section - {gen_timestamp}",
-                    filename=os.path.join(OUTPUT_DIR, f"section_{gen_timestamp}.png"),
+                    title="Generated Section",
+                    filename=os.path.join(run_dir, "section.png"),
                     show=interactive,
                 )
                 plot_ready = True
