@@ -94,3 +94,6 @@ codex_tmp/
 
 #mamba
 mamba*
+
+# results
+experiments/results/
