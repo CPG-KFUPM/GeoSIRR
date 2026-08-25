@@ -226,10 +226,9 @@ For OpenAI, the default shortlist is:
 1. gpt-5.6 (default, recommended)
 2. gpt-5.5
 3. gpt-5.4
-4. gpt-5.3
-5. gpt-5.2
-6. gpt-5.1
-7. gpt-5
+4. gpt-5.2
+5. gpt-5.1
+6. gpt-5
 
 For Ollama, GeoSIRR will list your local models discovered from Ollama.
 You can also enter a custom LLM name if your desired model is not listed.
