@@ -2,6 +2,7 @@
 Clarification Agent - Validates and improves geological structure descriptions.
 """
 import json
+
 import geosirr as gs
 
 VALIDATION_SYSTEM_PROMPT = """You are a helpful geological assistant that validates cross-section descriptions.
@@ -107,7 +108,7 @@ RESPOND IN STRICT JSON FORMAT:
 }
 """
 
-def validate_description(description: str, llm_model: str = "gpt-5") -> dict:
+def validate_description(description: str, llm_model: str = "gpt-5", llm_backend: str = "openai") -> dict:
     """
     Validates the user's geological description using LLM.
     Returns a dictionary with validation results.
@@ -119,7 +120,7 @@ def validate_description(description: str, llm_model: str = "gpt-5") -> dict:
     
     try:
         response, _ = gs.llm.call_llm(
-            backend="openai",
+            backend=llm_backend,
             model=llm_model,
             input=messages
         )
@@ -146,7 +147,14 @@ def validate_description(description: str, llm_model: str = "gpt-5") -> dict:
         }
 
 
-def ask_about_section(question: str, definition: str, description: str, api_key: str, llm_model: str = "gpt-5") -> str:
+def ask_about_section(
+    question: str,
+    definition: str,
+    description: str,
+    api_key: str,
+    llm_model: str = "gpt-5",
+    llm_backend: str = "openai",
+) -> str:
     """
     Answer questions about the current section without modifying it.
     Returns: AI response text
@@ -185,7 +193,7 @@ User's question: {question}"""
         
         # Use 
         response, _ = gs.llm.call_llm(
-            backend="openai",
+            backend=llm_backend,
             model=llm_model,
             input=messages,            
         )

@@ -26,6 +26,7 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+condaenv*
 
 # Type checker caches
 .mypy_cache/
@@ -37,9 +38,37 @@ venv.bak/
 # PyCharm
 .idea/
 
-# OS Files
+
+# macOS clutter and metadata
 .DS_Store
+.AppleDouble
+.LSOverride
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# Windows system and thumbnail files
 Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.lnk
+*.cab
+*.msi
+*.msm
+*.msp
+
+# Linux temporary and core files
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
 
 # Cache
 .cache
@@ -57,3 +86,14 @@ api_key_*.*
 
 #presentations
 *.pptx
+
+# agents
+AGENTS.md
+.agents/
+codex_tmp/
+
+#mamba
+mamba*
+
+# results
+experiments/results/

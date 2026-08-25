@@ -1,13 +1,15 @@
-import os
 import base64
-import requests
-import openai
-import ollama
-from . import io
-from . import vis
-from typing import List, Dict, Optional, Union, Tuple
-import matplotlib.pyplot as plt
+import os
 from datetime import datetime
+from typing import Union
+
+import matplotlib.pyplot as plt
+import ollama
+import openai
+import requests
+
+from . import io, vis
+
 # Enable interactive mode for matplotlib
 plt.ion()
 
@@ -72,7 +74,7 @@ def count_tokens(text: str, model: str = "gpt-4") -> int:
         return max(1, len(text) // 4)
 
 
-def get_openai_models() -> List[str]:
+def get_openai_models() -> list[str]:
     """
     Retrieve a list of available OpenAI models.
     
@@ -98,7 +100,7 @@ def get_openai_models() -> List[str]:
     if not data:
         return []
 
-    model_ids: List[str] = []
+    model_ids: list[str] = []
     for item in data:
         if hasattr(item, "id"):
             model_ids.append(str(item.id))
@@ -108,7 +110,7 @@ def get_openai_models() -> List[str]:
     return sorted(set(model_ids))
 
 
-def get_ollama_models() -> List[str]:
+def get_ollama_models() -> list[str]:
     """
     Retrieve a list of available Ollama models.
 
@@ -121,19 +123,27 @@ def get_ollama_models() -> List[str]:
         raise RuntimeError("Ollama is not running. Please start it before calling this function.")
 
     listing = ollama.list()
-    models = listing.get("models", []) if isinstance(listing, dict) else []
-    names: List[str] = []
+    if isinstance(listing, dict):
+        models = listing.get("models", [])
+    else:
+        models = getattr(listing, "models", [])
+
+    names: list[str] = []
     for m in models:
         if isinstance(m, dict):
             if "model" in m:
                 names.append(str(m["model"]))
             elif "name" in m:
                 names.append(str(m["name"]))
+        else:
+            name = getattr(m, "model", None) or getattr(m, "name", None)
+            if name:
+                names.append(str(name))
 
     return sorted(set(n for n in names if n))
 
 
-def validate_llm(llm_backend: str, llm_name: str, client: Optional[openai.OpenAI] = None) -> bool:
+def validate_llm(llm_backend: str, llm_name: str, client: openai.OpenAI | None = None) -> bool:
     """
     Validate if the specified LLM backend and model name are supported.
 
@@ -215,11 +225,11 @@ def encode_image_to_data_uri(path: str) -> str:
 def call_openai_response(
     client: openai.OpenAI,    
     model: str,
-    input: List[Dict[str, str]],        
-    images: Optional[Union[str, List[str]]] = None,
-    files: Optional[Union[str, List[str]]] = None,    
+    input: list[dict[str, str]],        
+    images: str | list[str] | None = None,
+    files: str | list[str] | None = None,    
     **kwargs
-) -> tuple[dict, List[Dict[str, str]]]:
+) -> tuple[dict, list[dict[str, str]]]:
     r"""
     Call the OpenAI API for a chat response.
 
@@ -322,8 +332,8 @@ def call_openai_response(
 def call_llm(
     backend: str,
     model: str,        
-    input: List[Dict[str, str]],
-    image_paths: Optional[List[str]] = None,
+    input: list[dict[str, str]],
+    image_paths: list[str] | None = None,
     **kwargs
     ):
     r"""
@@ -485,7 +495,7 @@ def parse_response(
         openai.types.responses.response.Response,
         dict  # openai responses come back as dicts (or objects with .choices)
     ]
-) -> Tuple[str, Optional[str]]:
+) -> tuple[str, str | None]:
     """
     Parses responses from Ollama or OpenAI (both Completion & Chat) to extract the generated text,
     and pulls out any <think>…</think> reasoning block separately.
@@ -757,7 +767,7 @@ def generate_section_text(instruction_prompt: str,
                     topology_errors_string = "Topology errors:\n" + "\n".join(str(x) for x in topology_errors)
                 else:
                     topology_errors_string = ""
-            except Exception as e:
+            except Exception:
                 is_valid_topology = False
                 topology_errors_string = ""
 

@@ -1,0 +1,110 @@
+0 0.0 0.0 # top-left section corner
+1 40.0 0.0 # top-right section corner
+2 40.0 -1.0 # post-rift internal contact at eastern edge
+3 0.0 -1.0 # post-rift internal contact at western edge
+4 0.0 -2.0 # western end of angular unconformity
+5 12.0 -2.0 # master fault termination at angular unconformity
+6 30.0 -2.0 # antithetic fault termination at angular unconformity
+7 40.0 -2.0 # eastern end of angular unconformity
+
+8 12.5 -2.45 # master fault, footwall synrift_upper base
+9 12.9 -2.75 # master fault, hanging-wall synrift_upper base
+10 13.3 -3.05 # master fault, footwall synrift_middle base
+11 13.8 -3.4 # master fault, hanging-wall synrift_middle base
+12 14.3 -3.75 # master fault, footwall synrift_lower base
+13 14.9 -4.15 # master fault, hanging-wall synrift_lower base
+14 15.5 -4.55 # master fault, footwall prerift_upper base
+15 16.2 -4.95 # master fault, hanging-wall prerift_upper base
+16 17.0 -5.35 # master fault, footwall prerift_middle base
+17 17.8 -5.75 # master fault, hanging-wall prerift_middle base
+18 18.7 -6.15 # master fault, footwall prerift_lower base
+19 19.6 -6.55 # master fault, hanging-wall prerift_lower base
+20 20.5 -7.0 # antithetic fault termination against master fault
+21 22.3 -8.0 # deep listric master-fault vertex
+22 23.8 -9.0 # deep listric master-fault vertex
+23 25.0 -10.0 # master fault at section base
+
+24 29.6 -2.35 # antithetic fault, distal synrift_upper base
+25 29.1 -2.65 # antithetic fault, proximal synrift_upper base
+26 28.7 -2.95 # antithetic fault, distal synrift_middle base
+27 28.1 -3.3 # antithetic fault, proximal synrift_middle base
+28 27.6 -3.65 # antithetic fault, distal synrift_lower base
+29 27.0 -4.05 # antithetic fault, proximal synrift_lower base
+30 26.4 -4.4 # antithetic fault, distal prerift_upper base
+31 25.7 -4.8 # antithetic fault, proximal prerift_upper base
+32 25.0 -5.15 # antithetic fault, distal prerift_middle base
+33 24.2 -5.55 # antithetic fault, proximal prerift_middle base
+34 23.4 -5.9 # antithetic fault, distal prerift_lower base
+35 22.5 -6.3 # antithetic fault, proximal prerift_lower base
+
+36 0.0 -2.3 # western synrift_upper base
+37 6.0 -2.35 # western synrift_upper base shaping point
+38 0.0 -2.85 # western synrift_middle base
+39 6.0 -2.92 # western synrift_middle base shaping point
+40 0.0 -3.4 # western top of prerift succession
+41 6.0 -3.55 # western top of prerift succession shaping point
+42 0.0 -4.3 # western prerift_upper base
+43 7.0 -4.4 # planar footwall prerift_upper base
+44 0.0 -5.1 # western prerift_middle base
+45 8.0 -5.2 # planar footwall prerift_middle base
+46 0.0 -5.9 # western prerift_lower base
+47 9.0 -6.0 # planar footwall prerift_lower base
+
+48 18.0 -2.55 # proximal synrift_upper base over rollover
+49 24.0 -2.45 # proximal synrift_upper base, nearly parallel to unconformity
+50 18.0 -3.15 # proximal synrift_middle base
+51 24.0 -3.05 # proximal synrift_middle base
+52 18.0 -3.85 # proximal top of prerift succession
+53 23.0 -3.55 # rollover crest on top of prerift succession
+54 19.0 -4.65 # proximal prerift_upper base
+55 23.0 -4.25 # rollover crest on prerift_upper base
+56 20.0 -5.35 # proximal prerift_middle base
+57 23.0 -4.95 # rollover crest on prerift_middle base
+58 20.5 -6.05 # proximal prerift_lower base
+59 22.8 -5.7 # rollover crest on prerift_lower base
+
+60 40.0 -2.2 # distal synrift_upper base
+61 34.0 -2.25 # distal synrift_upper base shaping point
+62 40.0 -2.5 # distal synrift_middle base
+63 34.0 -2.55 # distal synrift_middle base shaping point
+64 40.0 -2.85 # distal top of prerift succession
+65 34.0 -2.95 # distal top of prerift succession shaping point
+66 40.0 -4.0 # distal prerift_upper base
+67 34.0 -3.8 # distal prerift_upper base shaping point
+68 40.0 -5.0 # distal prerift_middle base
+69 34.0 -4.8 # distal prerift_middle base shaping point
+70 40.0 -6.0 # distal prerift_lower base
+71 34.0 -5.75 # distal prerift_lower base shaping point
+72 40.0 -10.0 # bottom-right section corner
+73 0.0 -10.0 # bottom-left section corner
+
+# Post-rift drape above the continuous angular unconformity
+postrift_upper 0 1 2 3
+postrift_lower 3 2 7 6 5 4
+
+# Western footwall succession
+synrift_upper^footwall 4 5 8 37 36
+synrift_middle^footwall 36 37 8 9 10 39 38
+synrift_lower^footwall 38 39 10 11 12 41 40
+prerift_upper^footwall 40 41 12 13 14 43 42
+prerift_middle^footwall 42 43 14 15 16 45 44
+prerift_lower^footwall 44 45 16 17 18 47 46
+basement^footwall 46 47 18 19 20 21 22 23 73
+
+# Proximal hanging wall between the master and antithetic faults
+synrift_upper^proximal_hangingwall 5 6 24 25 49 48 9 8
+synrift_middle^proximal_hangingwall 9 48 49 25 26 27 51 50 11 10
+synrift_lower^proximal_hangingwall 11 50 51 27 28 29 53 52 13 12
+prerift_upper^proximal_hangingwall 13 52 53 29 30 31 55 54 15 14
+prerift_middle^proximal_hangingwall 15 54 55 31 32 33 57 56 17 16
+prerift_lower^proximal_hangingwall 17 56 57 33 34 35 59 58 19 18
+basement^proximal_hangingwall 19 58 59 35 20
+
+# Distal hanging wall east of the antithetic fault
+synrift_upper^distal_hangingwall 6 7 60 61 24
+synrift_middle^distal_hangingwall 24 61 60 62 63 26 25
+synrift_lower^distal_hangingwall 26 63 62 64 65 28 27
+prerift_upper^distal_hangingwall 28 65 64 66 67 30 29
+prerift_middle^distal_hangingwall 30 67 66 68 69 32 31
+prerift_lower^distal_hangingwall 32 69 68 70 71 34 33
+basement^distal_hangingwall 34 71 70 72 23 22 21 20 35
