@@ -1,9 +1,9 @@
 {
     "title":"GeoSIRR: Geological Section Interpretation, Reconstruction & Refinement",
-    "version":"1.0.0",    
+    "version":"1.0.1",
     "license":"GPL-3.0-only",
     "upload_type":"software",
-    "description":"GeoSIRR (Geological Section Interpretation, Reconstruction & Refinement) is an open-source Python Framework that leverages large language models (LLMs) to translate free-form geological narratives into structured, coordinate-based cross-section geometries.",
+    "description":"GeoSIRR (Geological Section Interpretation, Reconstruction & Refinement) is an open-source Python Framework that leverages large language models (LLMs) to translate free-form geological narratives into structured, coordinate-based cross-section geometries. Version 1.0.1 adds Ollama as a local LLM provider alongside OpenAI, timestamped per-run output directories that record the prompt, generated section, plot, and runtime log, a repeated-generation uncertainty-quantification workflow with geometry-variability figures, standalone plotting of cross-section files with configurable layout, and non-interactive command-line execution.",
     "keywords":[
        "Geology",
        "Structural Geology",
