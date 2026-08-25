@@ -575,10 +575,10 @@ This work is described in the following manuscript, which you can cite when usin
 Anikiev, D., Mosquera, J. E. , Ayranci, K., Bott, J., Waheed, U. b. (2026). GeoSIRR 1.0: Conversational Geological Cross-Section Modeling Using Large Language Models. (in review in Geoscientific Model Development).
 <https://doi.org/10.5194/egusphere-2025-6545>
 
-Zenodo publication:
+Zenodo publication (collection):
 
-Anikiev, D., & Mosquera, J. E. (2025). GeoSIRR: Geological Section Interpretation, Reconstruction & Refinement (1.0.0). Zenodo. 
-<https://doi.org/10.5281/zenodo.18097054>
+Anikiev, D., & Mosquera, J. E. (2025). GeoSIRR: Geological Section Interpretation, Reconstruction & Refinement [Computer software]. Zenodo.
+<https://doi.org/10.5281/zenodo.18097053>
 
 ## License
 
