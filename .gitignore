@@ -91,6 +91,7 @@ api_key_*.*
 AGENTS.md
 .agents/
 codex_tmp/
+.claude/
 
 #mamba
 mamba*
