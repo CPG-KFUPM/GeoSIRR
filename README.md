@@ -2,6 +2,10 @@
 
 [![DOI](https://zenodo.org/badge/1124047636.svg)](https://zenodo.org/badge/latestdoi/1124047636)
 
+<p align="center">
+  <img src="assets/geosirr-logo-bilingual.svg" alt="GeoSIRR bilingual logo" width="560">
+</p>
+
 GeoSIRR: Geological Section Interpretation, Reconstruction & Refinement
 
 ---
@@ -10,6 +14,9 @@ GeoSIRR: Geological Section Interpretation, Reconstruction & Refinement
 
 GeoSIRR is a Python-based application for generating, interpreting, refining, and visualizing geological cross-sections using Large Language Models ([LLMs]).
 It uses the Domain Specific Language (DSL) designed for geological cross-sections to translate free-form geological narratives into structured, coordinate-based geometries.
+
+The name **SIRR** also echoes the Arabic word **سِرّ** (*sirr*, “secret”). In the logo, the Arabic word is integrated into the geological cross-section rather than used as a separate label: its flattened letterforms resemble layer boundaries, the **kasra** beneath the *sīn* becomes an ochre geological interface, and the **shaddah** above the final *rā’* extends into a folded interface. Observation nodes connect these elements to the open `G`, unifying the Arabic lettering, subsurface structure, and circular Earth form.
+
 This command-line interface (CLI) version of GeoSIRR allows users to generate geological cross-sections from text descriptions and is able to:
 
 1. Validate the user's geological description for completeness.
